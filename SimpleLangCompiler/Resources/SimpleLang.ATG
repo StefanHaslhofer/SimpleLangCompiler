@@ -1,0 +1,58 @@
+COMPILER SimpleLang
+
+CHARACTERS
+  tab           = '\u0009'. /*  9 = tabulator */
+  lf            = '\u000a'. /* 10 = line feed */
+  cr            = '\u000d'. /* 13 = carriage return */
+
+  zero          = '0'.
+  nonZeroDigit  = "123456789".
+  digit         = '0' + nonZeroDigit .
+  letter        = 'A' .. 'Z' + 'a' .. 'z' + '_' + '$'.
+
+  char          = ANY - "'" - '\\' - cr - lf.
+
+TOKENS
+  ident         = letter { letter | digit }.
+  number = (  zero | nonZeroDigit { digit } ).
+  charCon =
+    "'" ( char
+        | "\\" ("b" | "t" | "n" | "f" | "r" | "\"" | "\'" | "\\")
+        )
+    "'".
+
+COMMENTS FROM "/*" TO "*/"
+COMMENTS FROM "//" TO lf
+
+IGNORE lf + cr + tab
+
+/*---------------------------------------------------------------------------*/
+
+PRODUCTIONS
+
+
+SimpleLang = Declaration {Declaration}.
+Declaration = VarDecl | FnDecl.
+VarDecl = "var" ident ":" Type ";".
+Type = ident.
+FnDecl = "fn" ident Parameters "{" {VarDecl} StatSeq "}".
+Parameters = "(" [Param {"," Param}] ")" [":" Type].
+Param = ident ":" Type.
+StatSeq = Statement {Statement}.
+Statement =
+      ident ( "=" Expression | ActParameters ) ";"
+    | "if" "(" Condition ")" "{" StatSeq "}" {"elseif" "(" Condition ")" "{" StatSeq "}" } ["else" "{" StatSeq "}"]
+    | "while" "(" Condition ")" "{" StatSeq "}"
+    | "return" [Expression] ";"
+.
+Condition = Expression Relop Expression.
+Expression = [Addop] Term {Addop Term}.
+Term = Factor {Mulop Factor}.
+Factor = ident [ActParameters] | number | charCon | "(" Expression ")".
+ActParameters = "(" [Expression {"," Expression}] ")".
+Relop = "=" | "#" | "<" | ">" | ">=" | "<=".
+Addop = "+" | "-".
+Mulop = "*" | "/" | "%".
+
+
+END SimpleLang.
