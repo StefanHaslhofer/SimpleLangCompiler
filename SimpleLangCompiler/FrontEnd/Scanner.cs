@@ -1,9 +1,6 @@
-
-using System;
-using System.IO;
 using System.Collections;
 
-
+namespace SimpleLangCompiler.FrontEnd;
 
 public class Token {
 	public int kind;    // token kind

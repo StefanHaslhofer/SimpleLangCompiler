@@ -1,7 +1,4 @@
-
-using System;
-
-
+namespace SimpleLangCompiler.FrontEnd;
 
 public class Parser {
 	public const int _EOF = 0;
@@ -95,6 +92,7 @@ public class Parser {
 		} else SynErr(30);
 	}
 
+	// TODO add to symtab here
 	void VarDecl() {
 		Expect(4);
 		Expect(1);
@@ -103,6 +101,7 @@ public class Parser {
 		Expect(6);
 	}
 
+	// TODO add to symtab here, when entering function go down a level
 	void FnDecl() {
 		Expect(7);
 		Expect(1);
@@ -229,31 +228,31 @@ public class Parser {
 
 	void Relop() {
 		switch (la.kind) {
-		case 13: {
-			Get();
-			break;
-		}
-		case 19: {
-			Get();
-			break;
-		}
-		case 20: {
-			Get();
-			break;
-		}
-		case 21: {
-			Get();
-			break;
-		}
-		case 22: {
-			Get();
-			break;
-		}
-		case 23: {
-			Get();
-			break;
-		}
-		default: SynErr(33); break;
+			case 13: {
+				Get();
+				break;
+			}
+			case 19: {
+				Get();
+				break;
+			}
+			case 20: {
+				Get();
+				break;
+			}
+			case 21: {
+				Get();
+				break;
+			}
+			case 22: {
+				Get();
+				break;
+			}
+			case 23: {
+				Get();
+				break;
+			}
+			default: SynErr(33); break;
 		}
 	}
 
