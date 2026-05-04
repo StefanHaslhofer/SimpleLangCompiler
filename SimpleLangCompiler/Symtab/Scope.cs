@@ -19,4 +19,10 @@ public class Scope(Scope outer)
     /// Number of variables in the scope (used for addressing later).
     /// </summary>
     private int NVars { get; set; } = 0;
+
+    public void Insert(Obj obj)
+    {
+        // obj.Adr = NVars++;
+        // Locals.AddLast(obj);
+    }
 }

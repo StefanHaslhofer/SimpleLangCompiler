@@ -1,3 +1,5 @@
+using SimpleLangCompiler.Symtab;
+
 namespace SimpleLangCompiler.FrontEnd;
 
 public class Parser {
@@ -13,6 +15,7 @@ public class Parser {
 	
 	public Scanner scanner;
 	public Errors  errors;
+	public SymbolTable SymTab;
 
 	public Token t;    // last recognized token
 	public Token la;   // lookahead token
@@ -20,8 +23,9 @@ public class Parser {
 
 
 
-	public Parser(Scanner scanner) {
+	public Parser(Scanner scanner, SymbolTable symTab) {
 		this.scanner = scanner;
+		this.SymTab = symTab;
 		errors = new Errors();
 	}
 
@@ -91,18 +95,23 @@ public class Parser {
 			FnDecl();
 		} else SynErr(30);
 	}
-
-	// TODO add to symtab here
-	void VarDecl() {
+	
+	void VarDecl()
+	{
+		// TODO add variable with name and type here
 		Expect(4);
 		Expect(1);
+		// TODO variable name is read here
 		Expect(5);
 		Type();
 		Expect(6);
+		
+		SymTab.Insert(null);
 	}
 
 	// TODO add to symtab here, when entering function go down a level
 	void FnDecl() {
+		SymTab.OpenScope();
 		Expect(7);
 		Expect(1);
 		Parameters();
@@ -112,6 +121,7 @@ public class Parser {
 		}
 		StatSeq();
 		Expect(9);
+		SymTab.CloseScope();
 	}
 
 	void Type() {
@@ -119,6 +129,7 @@ public class Parser {
 	}
 
 	void Parameters() {
+		// TODO add parameters to symtab here
 		Expect(10);
 		if (la.kind == 1) {
 			Param();

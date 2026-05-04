@@ -22,6 +22,14 @@ public class SymbolTable
         CurScope = new Scope(CurScope);
     }
     
+    /// <summary>
+    /// Insert an object into the current scope.
+    /// </summary>
+    public void Insert(Obj obj)
+    {
+        CurScope.Insert(obj);
+    }
+    
     public void CloseScope(){
         CurScope = CurScope.Outer;
     }
