@@ -23,9 +23,9 @@ public class Parser {
 
 
 
-	public Parser(Scanner scanner, SymbolTable symTab) {
+	public Parser(Scanner scanner) {
 		this.scanner = scanner;
-		this.SymTab = symTab;
+		SymTab = new SymbolTable(this);
 		errors = new Errors();
 	}
 
@@ -98,38 +98,54 @@ public class Parser {
 	
 	void VarDecl()
 	{
-		// TODO add variable with name and type here
+		var kind = ObjKind.Var;
 		Expect(4);
-		Expect(1);
-		// TODO variable name is read here
+		Expect(1); // var name
+		var name = t.val;
+			
 		Expect(5);
-		Type();
+		var type = Type();
 		Expect(6);
 		
-		SymTab.Insert(null);
+		SymTab.Insert(kind, name, type);
 	}
-
-	// TODO add to symtab here, when entering function go down a level
+	
 	void FnDecl() {
-		SymTab.OpenScope();
+		var kind = ObjKind.Func;
 		Expect(7);
 		Expect(1);
-		Parameters();
+		var name = t.val;
+		var obj = SymTab.Insert(kind, name, null);
+		
+		SymTab.OpenScope();
+		// function parameters
+		var returnType = Parameters();
+		
 		Expect(8);
+		// local function variables
 		while (la.kind == 4) {
 			VarDecl();
 		}
+
+		// store scope locals in parent object for easier access and better debugging
+		obj.Locals = SymTab.CurScope.Locals;
+		SymTab.CloseScope();
+		// type comes after function declaration
+		obj.Type = returnType;
+		
 		StatSeq();
 		Expect(9);
-		SymTab.CloseScope();
 	}
 
-	void Type() {
+	Struct Type() {
 		Expect(1);
+
+		var typeObj = SymTab.Find(t.val);
+		
+		return typeObj.Type;
 	}
 
-	void Parameters() {
-		// TODO add parameters to symtab here
+	Struct Parameters() {
 		Expect(10);
 		if (la.kind == 1) {
 			Param();
@@ -141,8 +157,10 @@ public class Parser {
 		Expect(12);
 		if (la.kind == 5) {
 			Get();
-			Type();
+			return Type();
 		}
+
+		return new Struct(StructKind.Void);
 	}
 
 	void StatSeq() {
@@ -153,9 +171,12 @@ public class Parser {
 	}
 
 	void Param() {
+		var kind = ObjKind.Var;
 		Expect(1);
+		var name = t.val;
 		Expect(5);
-		Type();
+		var type = Type();
+		SymTab.Insert(kind, name, type);
 	}
 
 	void Statement() {
@@ -318,7 +339,6 @@ public class Parser {
 		Get();
 		SimpleLang();
 		Expect(0);
-
 	}
 	
 	static readonly bool[,] set = {
