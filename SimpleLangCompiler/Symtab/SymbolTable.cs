@@ -29,27 +29,30 @@ public class SymbolTable
         Insert(ObjKind.Type, "char", CharType);
         Insert(ObjKind.Type, "void", VoidType);
         
-        NoObj = new Obj(ObjKind.Var, "none", VoidType);
+        NoObj = Insert(ObjKind.Var, "none", VoidType);
         
         // put
-        PutFunc = new Obj(ObjKind.Func, "put", VoidType);
+        PutFunc = Insert(ObjKind.Func, "put", VoidType);
         OpenScope();
         Insert(ObjKind.Var, "e", CharType);
+        PutFunc.Locals = CurScope!.Locals;
         CloseScope();
         
         // putLn
-        PutLnFunc = new Obj(ObjKind.Func, "putLn", VoidType);
+        PutLnFunc = Insert(ObjKind.Func, "putLn", VoidType);
         
         // ord
-        OrdFunc = new Obj(ObjKind.Func, "ord", IntType);
+        OrdFunc = Insert(ObjKind.Func, "ord", IntType);
         OpenScope();
         Insert(ObjKind.Var, "ch", CharType);
+        OrdFunc.Locals = CurScope!.Locals;
         CloseScope();
         
         // chr
-        ChrFunc = new Obj(ObjKind.Func, "chr", CharType);
+        ChrFunc = Insert(ObjKind.Func, "chr", CharType);
         OpenScope();
         Insert(ObjKind.Var, "i", IntType);
+        ChrFunc.Locals = CurScope!.Locals;
         CloseScope();
     }
 
