@@ -1,0 +1,312 @@
+﻿using System.Text;
+using SimpleLangCompiler.FrontEnd;
+
+namespace TestSimpleLangCompiler;
+
+public class CompilerTests
+{
+    private void AnalyzeOk(string input)
+    {
+        var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
+        var parser = new Parser(new Scanner(stream));
+        parser.Parse();
+
+        Assert.Equal(0, parser.errors.count);
+    }
+
+    private void AnalyzeErr(string input)
+    {
+        
+        var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
+        var parser = new Parser(new Scanner(stream));
+        parser.Parse();
+
+        Assert.True(parser.errors.count > 0);
+    }
+
+    // =========================
+    // Semantic tests
+    // =========================
+
+    [Fact] public void TestValidSimpleAssignment() => AnalyzeOk(@"
+        var x: int;
+        fn main() { x = 5; }
+    ");
+
+    [Fact] public void TestValidFunctionParams() => AnalyzeOk(@"
+        fn add(a: int, b: int): int { return a; }
+    ");
+
+    [Fact] public void TestValidShadowing() => AnalyzeOk(@"
+        var x: int;
+        fn main() {
+            var x: int;
+            x = 10;
+        }
+    ");
+
+    [Fact] public void TestValidNestedScope() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            if (1 = 1) {
+                var y: int;
+                y = 5;
+            }
+            x = 3;
+        }
+    ");
+
+    [Fact] public void TestValidFunctionCall() => AnalyzeOk(@"
+        fn foo(a: int, b: int) { return; }
+        fn main() { foo(1, 2); }
+    ");
+
+    [Fact] public void TestValidRecursiveFunction() => AnalyzeOk(@"
+        fn fact(n: int): int {
+            if (n = 0) { return 1; }
+            else { return n; }
+        }
+    ");
+
+    [Fact] public void TestValidWhile() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = 0;
+            while (x < 10) { x = x + 1; }
+        }
+    ");
+
+    [Fact] public void TestValidDeepShadowing() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            if (1 = 1) {
+                var x: int;
+                x = 2;
+            }
+            x = 3;
+        }
+    ");
+
+    [Fact] public void TestUndefinedVariable() => AnalyzeErr(@"
+        fn main() { x = 5; }
+    ");
+
+    [Fact] public void TestDuplicateVariable() => AnalyzeErr(@"
+        fn main() {
+            var x: int;
+            var x: int;
+        }
+    ");
+
+    [Fact] public void TestDuplicateFunction() => AnalyzeErr(@"
+        fn foo() {}
+        fn foo() {}
+    ");
+
+    [Fact] public void TestUndefinedFunctionCall() => AnalyzeErr(@"
+        fn main() { foo(1); }
+    ");
+
+    [Fact] public void TestWrongArgumentCount() => AnalyzeErr(@"
+        fn foo(a: int, b: int) {}
+        fn main() { foo(1); }
+    ");
+
+    [Fact] public void TestVariableOutOfScope() => AnalyzeErr(@"
+        fn main() {
+            if (1 = 1) {
+                var x: int;
+            }
+            x = 5;
+        }
+    ");
+
+    [Fact] public void TestDuplicateParameter() => AnalyzeErr(@"
+        fn foo(a: int, a: int) {}
+    ");
+
+    [Fact] public void TestParamLocalConflict() => AnalyzeErr(@"
+        fn foo(a: int) {
+            var a: int;
+        }
+    ");
+
+    [Fact] public void TestAssignToFunction() => AnalyzeErr(@"
+        fn foo() {}
+        fn main() { foo = 5; }
+    ");
+
+    [Fact] public void TestCallVariableAsFunction() => AnalyzeErr(@"
+        var x: int;
+        fn main() { x(1); }
+    ");
+
+    [Fact] public void TestMultipleErrors() => AnalyzeErr(@"
+        fn main() {
+            x = 5;
+            y = 6;
+            foo(1);
+        }
+    ");
+
+    // =========================
+    // Parse tests
+    // =========================
+
+    [Fact] public void TestMinimalVar() => AnalyzeOk("var x: int;");
+
+    [Fact] public void TestMultipleVars() => AnalyzeOk(@"
+        var x: int;
+        var y: int;
+        var z: char;
+    ");
+
+    [Fact] public void TestEmptyFunction() => AnalyzeOk(@"
+        fn main() { }
+    ");
+
+    [Fact] public void TestFunctionReturn() => AnalyzeOk(@"
+        fn main() { return; }
+    ");
+
+    [Fact] public void TestFunctionWithParams() => AnalyzeOk(@"
+        fn add(a: int, b: int): int {
+            return a + b;
+        }
+    ");
+
+    [Fact] public void TestLocalVars() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            var y: int;
+            x = 5;
+            y = x;
+        }
+    ");
+
+    [Fact] public void TestFunctionCall() => AnalyzeOk(@"
+        fn main() {
+            print(5);
+        }
+    ");
+
+    [Fact] public void TestExpressionPrecedence() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = 1 + 2 * 3 - 4 / 2 % 2;
+        }
+    ");
+
+    [Fact] public void TestParentheses() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = (1 + 2) * (3 - 4);
+        }
+    ");
+
+    [Fact] public void TestIfStatement() => AnalyzeOk(@"
+        fn main() {
+            if (1 = 1) { return; }
+        }
+    ");
+
+    [Fact] public void TestIfElseIfElse() => AnalyzeOk(@"
+        fn main() {
+            if (x = 1) { return; }
+            elseif (x # 2) { return; }
+            else { return; }
+        }
+    ");
+
+    [Fact] public void TestWhileLoop() => AnalyzeOk(@"
+        fn main() {
+            while (x < 10) {
+                x = x + 1;
+            }
+        }
+    ");
+
+    [Fact] public void TestCallWithArgs() => AnalyzeOk(@"
+        fn main() {
+            foo(1, 2, 3);
+        }
+    ");
+
+    [Fact] public void TestCharLiteral() => AnalyzeOk(@"
+        var c: char;
+        fn main() {
+            c = 'a';
+        }
+    ");
+
+    [Fact] public void TestEscapedChar() => AnalyzeOk(@"
+        fn main() {
+            var c: char;
+            c = '\n';
+        }
+    ");
+
+    [Fact] public void TestComments() => AnalyzeOk(@"
+        // line comment
+        var x: int;
+
+        /* block comment */
+        fn main() {
+            x = 5;
+        }
+    ");
+
+    [Fact] public void TestNestedControl() => AnalyzeOk(@"
+        fn main() {
+            if (1 = 1) {
+                while (2 = 2) {
+                    if (3 = 3) {
+                        return;
+                    }
+                }
+            }
+        }
+    ");
+
+    [Fact] public void TestManyParams() => AnalyzeOk(@"
+        fn test(a:int,b:int,c:int,d:int,e:int,f:int): int {
+            return a;
+        }
+    ");
+
+    [Fact] public void TestMissingSemicolon() => AnalyzeErr("var x: int");
+
+    [Fact] public void TestMissingColon() => AnalyzeErr("var x int;");
+
+    [Fact] public void TestInvalidAssignment() => AnalyzeErr(@"
+        fn main() {
+            = 5;
+        }
+    ");
+
+    [Fact] public void TestBrokenExpression() => AnalyzeErr(@"
+        fn main() {
+            x = 1 + ;
+        }
+    ");
+
+    [Fact] public void TestUnclosedBlock() => AnalyzeErr(@"
+        fn main() {
+            if (1 = 1) {
+                return;
+        }
+    ");
+
+    [Fact] public void TestInvalidFunctionSyntax() => AnalyzeErr(@"
+        fn main( {
+            return;
+        }
+    ");
+
+    [Fact] public void TestInvalidChar() => AnalyzeErr(@"
+        fn main() {
+            var c: char;
+            c = '';
+        }
+    ");
+}
