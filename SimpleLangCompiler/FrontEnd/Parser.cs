@@ -10,7 +10,7 @@ public class Parser
 
     public Scanner scanner;
     public Errors errors;
-    public SymbolTable SymTab;
+    public readonly SymbolTable SymTab;
 
     public Token t;   // last recognized token
     public Token la;  // lookahead token
@@ -134,10 +134,10 @@ public class Parser
         }
 
         obj.Locals = SymTab.CurScope.Locals;
-        SymTab.CloseScope();
         obj.Type = returnType;
-
         StatSeq();
+        
+        SymTab.CloseScope();
         Expect(TokenKind.RBrace);
     }
 
@@ -145,7 +145,7 @@ public class Parser
     {
         Expect(TokenKind.Ident);
         var typeObj = SymTab.Find(t.val);
-        return typeObj.Type;
+        return typeObj.Type!;
     }
 
     Struct Parameters()
@@ -166,6 +166,7 @@ public class Parser
             Get();
             return Type();
         }
+        
         return new Struct(StructKind.Void);
     }
 
@@ -193,10 +194,16 @@ public class Parser
         if (la.kind == TokenKind.Ident)
         {
             Get();
+            Struct? x = SymTab.Find(t.val).Type;
+            
             if (la.kind == TokenKind.Assign)
             {
                 Get();
-                Expression();
+                Struct? y = Expression();
+                if (x?.Kind != y?.Kind)
+                {
+                    errors.SemErr(Errors.DifferentTypes);
+                }
             }
             else if (la.kind == TokenKind.LParen)
             {
@@ -254,18 +261,25 @@ public class Parser
         else SynErr(32);
     }
 
-    void Expression()
+    Struct? Expression()
     {
         if (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
         {
             Addop();
         }
-        Term();
+        Struct? x = Term();
         while (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
         {
             Addop();
-            Term();
+            Struct? y = Term();
+
+            if (x?.Kind != y?.Kind)
+            {
+                errors.SemErr(Errors.DifferentTypes);
+            }
         }
+
+        return x;
     }
 
     void ActParameters()
@@ -273,11 +287,16 @@ public class Parser
         Expect(TokenKind.LParen);
         if (StartOf(2))
         {
-            Expression();
+            Struct? x = Expression();
             while (la.kind == TokenKind.Comma)
             {
                 Get();
-                Expression();
+                Struct? y = Expression();
+                
+                if (x?.Kind != y?.Kind)
+                {
+                    errors.SemErr(Errors.DifferentTypes);
+                }
             }
         }
         Expect(TokenKind.RParen);
@@ -285,14 +304,19 @@ public class Parser
 
     void Condition()
     {
-        Expression();
+        Struct? x = Expression();
         Relop();
-        Expression();
+        Struct? y = Expression();
+
+        if (x?.Kind != y?.Kind)
+        {
+            errors.SemErr(Errors.DifferentTypes);
+        }
     }
 
     void Relop()
     {
-        switch ((TokenKind)la.kind)
+        switch (la.kind)
         {
             case TokenKind.Assign:    Get(); break;
             case TokenKind.Hash:      Get(); break;
@@ -311,26 +335,43 @@ public class Parser
         else SynErr(34);
     }
 
-    void Term()
+    Struct? Term()
     {
-        Factor();
+        Struct? x = Factor();
         while (la.kind == TokenKind.Star || la.kind == TokenKind.Slash || la.kind == TokenKind.Percent)
         {
             Mulop();
-            Factor();
+            Struct? y = Factor();
+
+            if (x?.Kind != StructKind.Int || y?.Kind != StructKind.Int)
+            {
+                errors.SemErr(Errors.IntegerNeeded);
+            }
         }
+
+        return x;
     }
 
-    void Factor()
+    Struct? Factor()
     {
+        Struct? s = null;
         if (la.kind == TokenKind.Ident)
         {
             Get();
+            s = SymTab.Find(t.val).Type;
             if (la.kind == TokenKind.LParen)
                 ActParameters();
         }
-        else if (la.kind == TokenKind.Number)  Get();
-        else if (la.kind == TokenKind.CharCon) Get();
+        else if (la.kind == TokenKind.Number)
+        {
+            Get();
+            s = new Struct(StructKind.Int);
+        }
+        else if (la.kind == TokenKind.CharCon)
+        {
+            Get();
+            s = new Struct(StructKind.Char);
+        }
         else if (la.kind == TokenKind.LParen)
         {
             Get();
@@ -338,6 +379,8 @@ public class Parser
             Expect(TokenKind.RParen);
         }
         else SynErr(35);
+
+        return s;
     }
 
     void Mulop()
@@ -363,81 +406,6 @@ public class Parser
         {_x,_T,_T,_T, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_T,_x,_x, _x,_x,_x}
     };
 }
-
-
-public class Errors {
-	public int count = 0;                                    // number of overall errors detected
-	public int synCount = 0;								 // number of syntax errors detected
-	public System.IO.TextWriter errorStream = Console.Out;   // error messages go to this stream
-	public string errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
-
-	public virtual void SynErr (int line, int col, int n) {
-		string s;
-		switch (n) {
-			case 0: s = "EOF expected"; break;
-			case 1: s = "ident expected"; break;
-			case 2: s = "number expected"; break;
-			case 3: s = "charCon expected"; break;
-			case 4: s = "\"var\" expected"; break;
-			case 5: s = "\":\" expected"; break;
-			case 6: s = "\";\" expected"; break;
-			case 7: s = "\"fn\" expected"; break;
-			case 8: s = "\"{\" expected"; break;
-			case 9: s = "\"}\" expected"; break;
-			case 10: s = "\"(\" expected"; break;
-			case 11: s = "\",\" expected"; break;
-			case 12: s = "\")\" expected"; break;
-			case 13: s = "\"=\" expected"; break;
-			case 14: s = "\"if\" expected"; break;
-			case 15: s = "\"elseif\" expected"; break;
-			case 16: s = "\"else\" expected"; break;
-			case 17: s = "\"while\" expected"; break;
-			case 18: s = "\"return\" expected"; break;
-			case 19: s = "\"#\" expected"; break;
-			case 20: s = "\"<\" expected"; break;
-			case 21: s = "\">\" expected"; break;
-			case 22: s = "\">=\" expected"; break;
-			case 23: s = "\"<=\" expected"; break;
-			case 24: s = "\"+\" expected"; break;
-			case 25: s = "\"-\" expected"; break;
-			case 26: s = "\"*\" expected"; break;
-			case 27: s = "\"/\" expected"; break;
-			case 28: s = "\"%\" expected"; break;
-			case 29: s = "??? expected"; break;
-			case 30: s = "invalid Declaration"; break;
-			case 31: s = "invalid Statement"; break;
-			case 32: s = "invalid Statement"; break;
-			case 33: s = "invalid Relop"; break;
-			case 34: s = "invalid Addop"; break;
-			case 35: s = "invalid Factor"; break;
-			case 36: s = "invalid Mulop"; break;
-
-			default: s = "error " + n; break;
-		}
-		errorStream.WriteLine(errMsgFormat, line, col, s);
-		count++;
-		synCount++;
-	}
-
-	public virtual void SemErr (int line, int col, string s) {
-		errorStream.WriteLine(errMsgFormat, line, col, s);
-		count++;
-	}
-	
-	public virtual void SemErr (string s) {
-		errorStream.WriteLine(s);
-		count++;
-	}
-	
-	public virtual void Warning (int line, int col, string s) {
-		errorStream.WriteLine(errMsgFormat, line, col, s);
-	}
-	
-	public virtual void Warning(string s) {
-		errorStream.WriteLine(s);
-	}
-} // Errors
-
 
 public class FatalError: Exception {
 	public FatalError(string m): base(m) {}

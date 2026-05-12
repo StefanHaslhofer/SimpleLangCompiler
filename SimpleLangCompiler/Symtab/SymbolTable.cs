@@ -13,7 +13,7 @@ public class SymbolTable
     
     public Obj NoObj, PutFunc, PutLnFunc, OrdFunc, ChrFunc;
     // TODO: add all pre declared functions and types here
-    public Scope? CurScope { get; set; }
+    public Scope CurScope { get; set; }
 
     private readonly Parser _parser;
 
@@ -61,7 +61,7 @@ public class SymbolTable
     /// </summary>
     public Obj Find(string name)
     {
-        var obj = CurScope?.GetGlobal(name);
+        var obj = CurScope.GetGlobal(name);
         if (obj == null)
         {
             _parser.SemErr($"{name} not found.");
@@ -79,7 +79,7 @@ public class SymbolTable
     /// <summary>
     ///     Insert an object into the current scope.
     /// </summary>
-    public Obj Insert(ObjKind kind, string name, Struct type)
+    public Obj Insert(ObjKind kind, string name, Struct? type)
     {
         // semantic error if object already exists in scope
         if (CurScope!.FindLocal(name))
@@ -97,6 +97,6 @@ public class SymbolTable
     }
     
     public void CloseScope(){
-        CurScope = CurScope?.Outer;
+        CurScope = CurScope.Outer!;
     }
 }

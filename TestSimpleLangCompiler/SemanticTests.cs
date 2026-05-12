@@ -95,6 +95,19 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1, 2);
         }
     ");
+    
+    [Fact]
+    public void ValidFunctionTypes() => SemOk(@" 
+        fn foo(a: int, b: int, c: int) {
+            a = a + 1;
+            b = b + 1;
+            c = a + b;
+        }
+
+        fn main() {
+            foo(1, 2, 3);
+        }
+    ");
  
     [Fact]
     public void ValidReturnType() => SemOk(@"
@@ -207,8 +220,12 @@ public class SemanticTests(ITestOutputHelper output)
  
     [Fact]
     public void ErrorDuplicateFunction() => SemErr(@"
-        fn foo() {}
-        fn foo() {}
+        fn foo() {
+            return;
+        }
+        fn foo() {
+            return;
+        }
     ");
  
     [Fact]
@@ -220,7 +237,9 @@ public class SemanticTests(ITestOutputHelper output)
  
     [Fact]
     public void ErrorWrongArgumentCount() => SemErr(@"
-        fn foo(a: int, b: int) {}
+        fn foo(a: int, b: int) {
+            return;
+        }
  
         fn main() {
             foo(1);
@@ -240,7 +259,9 @@ public class SemanticTests(ITestOutputHelper output)
  
     [Fact]
     public void ErrorDuplicateParameter() => SemErr(@"
-        fn foo(a: int, a: int) {}
+        fn foo(a: int, a: int) {
+            return;
+        }
     ");
  
     [Fact]
@@ -252,7 +273,9 @@ public class SemanticTests(ITestOutputHelper output)
  
     [Fact]
     public void ErrorAssignToFunction() => SemErr(@"
-        fn foo() {}
+        fn foo() {
+            return;
+        }
  
         fn main() {
             foo = 5;

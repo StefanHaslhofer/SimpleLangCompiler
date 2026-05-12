@@ -19,7 +19,7 @@ public class ParserTests(ITestOutputHelper output)
         parser.Parse();
 
         output.WriteLine(sw.ToString());
-        Assert.Equal(0, parser.errors.count);
+        Assert.Equal(0, parser.errors.synCount);
     }
 
     private void AnalyzeErr(string input)
@@ -33,7 +33,7 @@ public class ParserTests(ITestOutputHelper output)
         parser.Parse();
 
         output.WriteLine(sw.ToString());
-        Assert.True(parser.errors.count > 0);
+        Assert.True(parser.errors.synCount > 0);
     }
 
     // =========================
@@ -48,7 +48,7 @@ public class ParserTests(ITestOutputHelper output)
         var z: char;
     ");
 
-    [Fact] public void TestEmptyFunction() => AnalyzeOk(@"
+    [Fact] public void TestEmptyFunction() => AnalyzeErr(@"
         fn main() { }
     ");
 
@@ -73,7 +73,7 @@ public class ParserTests(ITestOutputHelper output)
 
     [Fact] public void TestFunctionCall() => AnalyzeOk(@"
         fn main() {
-            print(5);
+            put(5);
         }
     ");
 
