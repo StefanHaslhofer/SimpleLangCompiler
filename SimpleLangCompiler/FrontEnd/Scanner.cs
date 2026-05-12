@@ -3,7 +3,7 @@ using System.Collections;
 namespace SimpleLangCompiler.FrontEnd;
 
 public class Token {
-	public int kind;    // token kind
+	public TokenKind kind;    // token kind
 	public int pos;     // token position in bytes in the source text (starting at 0)
 	public int charPos;  // token position in characters in the source text (starting at 0)
 	public int col;     // token column (starting at 1)
@@ -199,11 +199,7 @@ public class UTF8Buffer: Buffer {
 //-----------------------------------------------------------------------------------
 public class Scanner {
 	const char EOL = '\n';
-	const int eofSym = 0; /* pdt */
-	const int maxT = 29;
-	const int noSym = 29;
-
-
+	
 	public Buffer buffer; // scanner buffer
 	
 	Token t;          // current token
@@ -353,13 +349,13 @@ public class Scanner {
 
 	void CheckLiteral() {
 		switch (t.val) {
-			case "var": t.kind = 4; break;
-			case "fn": t.kind = 7; break;
-			case "if": t.kind = 14; break;
-			case "elseif": t.kind = 15; break;
-			case "else": t.kind = 16; break;
-			case "while": t.kind = 17; break;
-			case "return": t.kind = 18; break;
+			case "var": t.kind = TokenKind.Var; break;
+			case "fn": t.kind = TokenKind.Fn; break;
+			case "if": t.kind = TokenKind.If; break;
+			case "elseif": t.kind = TokenKind.Elseif; break;
+			case "else": t.kind = TokenKind.Else; break;
+			case "while": t.kind = TokenKind.While; break;
+			case "return": t.kind = TokenKind.Return; break;
 			default: break;
 		}
 	}
@@ -369,7 +365,7 @@ public class Scanner {
 			ch >= 9 && ch <= 10 || ch == 13
 		) NextCh();
 		if (ch == '/' && Comment0() ||ch == '/' && Comment1()) return NextToken();
-		int recKind = noSym;
+		TokenKind recKind = TokenKind.NoSym;
 		int recEnd = pos;
 		t = new Token();
 		t.pos = pos; t.col = col; t.line = line; t.charPos = charPos;
@@ -380,24 +376,24 @@ public class Scanner {
 		
 		// map latest character to predefined state
 		switch (state) {
-			case -1: { t.kind = eofSym; break; } // NextCh already done
+			case -1: { t.kind = TokenKind.Eof; break; } // NextCh already done
 			case 0: {
-				if (recKind != noSym) {
+				if (recKind != TokenKind.NoSym) {
 					tlen = recEnd - t.pos;
 					SetScannerBehindT();
 				}
 				t.kind = recKind; break;
 			} // NextCh already done
 			case 1:
-				recEnd = pos; recKind = 1;
+				recEnd = pos; recKind = TokenKind.Ident;
 				if (ch == '$' || ch >= '0' && ch <= '9' || ch >= 'A' && ch <= 'Z' || ch == '_' || ch >= 'a' && ch <= 'z') {AddCh(); goto case 1;}
-				else {t.kind = 1; t.val = new String(tval, 0, tlen); CheckLiteral(); return t;}
+				else {t.kind = TokenKind.Ident; t.val = new String(tval, 0, tlen); CheckLiteral(); return t;}
 			case 2:
-				recEnd = pos; recKind = 2;
+				recEnd = pos; recKind = TokenKind.Number;
 				if (ch >= '0' && ch <= '9') {AddCh(); goto case 2;}
-				else {t.kind = 2; break;}
+				else {t.kind = TokenKind.Number; break;}
 			case 3:
-				{t.kind = 2; break;}
+				{t.kind = TokenKind.Number; break;}
 			case 4:
 				if (ch <= 9 || ch >= 11 && ch <= 12 || ch >= 14 && ch <= '&' || ch >= '(' && ch <= '[' || ch >= ']' && ch <= 65535) {AddCh(); goto case 5;}
 				else if (ch == 92) {AddCh(); goto case 6;}
@@ -409,47 +405,47 @@ public class Scanner {
 				if (ch == '"' || ch == 39 || ch == 92 || ch == 'b' || ch == 'f' || ch == 'n' || ch == 'r' || ch == 't') {AddCh(); goto case 5;}
 				else {goto case 0;}
 			case 7:
-				{t.kind = 3; break;}
+				{t.kind = TokenKind.CharCon; break;}
 			case 8:
-				{t.kind = 5; break;}
+				{t.kind = TokenKind.Colon; break;}
 			case 9:
-				{t.kind = 6; break;}
+				{t.kind = TokenKind.Semicolon; break;}
 			case 10:
-				{t.kind = 8; break;}
+				{t.kind = TokenKind.LBrace; break;}
 			case 11:
-				{t.kind = 9; break;}
+				{t.kind = TokenKind.RBrace; break;}
 			case 12:
-				{t.kind = 10; break;}
+				{t.kind = TokenKind.LParen; break;}
 			case 13:
-				{t.kind = 11; break;}
+				{t.kind = TokenKind.Comma; break;}
 			case 14:
-				{t.kind = 12; break;}
+				{t.kind = TokenKind.RParen; break;}
 			case 15:
-				{t.kind = 13; break;}
+				{t.kind = TokenKind.Assign; break;}
 			case 16:
-				{t.kind = 19; break;}
+				{t.kind = TokenKind.Hash; break;}
 			case 17:
-				{t.kind = 22; break;}
+				{t.kind = TokenKind.GreaterEq; break;}
 			case 18:
-				{t.kind = 23; break;}
+				{t.kind = TokenKind.LessEq; break;}
 			case 19:
-				{t.kind = 24; break;}
+				{t.kind = TokenKind.Plus; break;}
 			case 20:
-				{t.kind = 25; break;}
+				{t.kind = TokenKind.Minus; break;}
 			case 21:
-				{t.kind = 26; break;}
+				{t.kind = TokenKind.Star; break;}
 			case 22:
-				{t.kind = 27; break;}
+				{t.kind = TokenKind.Slash; break;}
 			case 23:
-				{t.kind = 28; break;}
+				{t.kind = TokenKind.Percent; break;}
 			case 24:
-				recEnd = pos; recKind = 20;
+				recEnd = pos; recKind = TokenKind.Less;
 				if (ch == '=') {AddCh(); goto case 18;}
-				else {t.kind = 20; break;}
+				else {t.kind = TokenKind.Less; break;}
 			case 25:
-				recEnd = pos; recKind = 21;
+				recEnd = pos; recKind = TokenKind.Greater;
 				if (ch == '=') {AddCh(); goto case 17;}
-				else {t.kind = 21; break;}
+				else {t.kind = TokenKind.Greater; break;}
 
 		}
 		t.val = new String(tval, 0, tlen);
@@ -481,7 +477,7 @@ public class Scanner {
 				pt.next = NextToken();
 			}
 			pt = pt.next;
-		} while (pt.kind > maxT); // skip pragmas
+		} while (pt.kind > TokenKind.NoSym); // skip pragmas
 	
 		return pt;
 	}

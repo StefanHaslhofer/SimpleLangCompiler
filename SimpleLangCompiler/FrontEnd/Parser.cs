@@ -2,356 +2,372 @@ using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.FrontEnd;
 
-public class Parser {
-	public const int _EOF = 0;
-	public const int _ident = 1;
-	public const int _number = 2;
-	public const int _charCon = 3;
-	public const int maxT = 29;
+public class Parser
+{
+    const bool _T = true;
+    const bool _x = false;
+    const int minErrDist = 2;
 
-	const bool _T = true;
-	const bool _x = false;
-	const int minErrDist = 2;
-	
-	public Scanner scanner;
-	public Errors  errors;
-	public SymbolTable SymTab;
+    public Scanner scanner;
+    public Errors errors;
+    public SymbolTable SymTab;
 
-	public Token t;    // last recognized token
-	public Token la;   // lookahead token
-	int errDist = minErrDist;
+    public Token t;   // last recognized token
+    public Token la;  // lookahead token
+    int errDist = minErrDist;
 
+    public Parser(Scanner scanner)
+    {
+        this.scanner = scanner;
+        SymTab = new SymbolTable(this);
+        errors = new Errors();
+    }
 
+    void SynErr(int n)
+    {
+        if (errDist >= minErrDist) errors.SynErr(la.line, la.col, n);
+        errDist = 0;
+    }
 
-	public Parser(Scanner scanner) {
-		this.scanner = scanner;
-		SymTab = new SymbolTable(this);
-		errors = new Errors();
-	}
+    public void SemErr(string msg)
+    {
+        if (errDist >= minErrDist) errors.SemErr(t.line, t.col, msg);
+        errDist = 0;
+    }
 
-	void SynErr (int n) {
-		if (errDist >= minErrDist) errors.SynErr(la.line, la.col, n);
-		errDist = 0;
-	}
+    void Get()
+    {
+        for (;;)
+        {
+            t = la;
+            la = scanner.Scan();
+            if (la.kind <= TokenKind.NoSym) { ++errDist; break; }
+            la = t;
+        }
+    }
 
-	public void SemErr (string msg) {
-		if (errDist >= minErrDist) errors.SemErr(t.line, t.col, msg);
-		errDist = 0;
-	}
-	
-	void Get () {
-		for (;;) {
-			t = la;
-			la = scanner.Scan();
-			if (la.kind <= maxT) { ++errDist; break; }
+    void Expect(TokenKind n)
+    {
+        if (la.kind == n) Get(); else SynErr((int)n);
+    }
 
-			la = t;
-		}
-	}
-	
-	void Expect (int n) {
-		if (la.kind==n) Get(); else { SynErr(n); }
-	}
-	
-	bool StartOf (int s) {
-		return set[s, la.kind];
-	}
-	
-	void ExpectWeak (int n, int follow) {
-		if (la.kind == n) Get();
-		else {
-			SynErr(n);
-			while (!StartOf(follow)) Get();
-		}
-	}
+    bool StartOf(int s)
+    {
+        return set[s, (int)la.kind];
+    }
 
+    void ExpectWeak(TokenKind n, int follow)
+    {
+        if (la.kind == n) Get();
+        else
+        {
+            SynErr((int)n);
+            while (!StartOf(follow)) Get();
+        }
+    }
 
-	bool WeakSeparator(int n, int syFol, int repFol) {
-		int kind = la.kind;
-		if (kind == n) {Get(); return true;}
-		else if (StartOf(repFol)) {return false;}
-		else {
-			SynErr(n);
-			while (!(set[syFol, kind] || set[repFol, kind] || set[0, kind])) {
-				Get();
-				kind = la.kind;
-			}
-			return StartOf(syFol);
-		}
-	}
+    bool WeakSeparator(TokenKind n, int syFol, int repFol)
+    {
+        TokenKind kind = la.kind;
+        if (kind == n) { Get(); return true; }
+        else if (StartOf(repFol)) { return false; }
+        else
+        {
+            SynErr((int)n);
+            while (!(set[syFol, (int)kind] || set[repFol, (int)kind] || set[0, (int)kind]))
+            {
+                Get();
+                kind = la.kind;
+            }
+            return StartOf(syFol);
+        }
+    }
 
-	
-	void SimpleLang() {
-		Declaration();
-		while (la.kind == 4 || la.kind == 7) {
-			Declaration();
-		}
-	}
+    void SimpleLang()
+    {
+        Declaration();
+        while (la.kind == TokenKind.Var || la.kind == TokenKind.Fn)
+        {
+            Declaration();
+        }
+    }
 
-	void Declaration() {
-		if (la.kind == 4) {
-			VarDecl();
-		} else if (la.kind == 7) {
-			FnDecl();
-		} else SynErr(30);
-	}
-	
-	void VarDecl()
-	{
-		var kind = ObjKind.Var;
-		Expect(4);
-		Expect(1); // var name
-		var name = t.val;
-			
-		Expect(5);
-		var type = Type();
-		Expect(6);
-		
-		SymTab.Insert(kind, name, type);
-	}
-	
-	void FnDecl() {
-		var kind = ObjKind.Func;
-		Expect(7);
-		Expect(1);
-		var name = t.val;
-		var obj = SymTab.Insert(kind, name, null);
-		
-		SymTab.OpenScope();
-		// function parameters
-		var returnType = Parameters();
-		
-		Expect(8);
-		// local function variables
-		while (la.kind == 4) {
-			VarDecl();
-		}
+    void Declaration()
+    {
+        if (la.kind == TokenKind.Var)
+            VarDecl();
+        else if (la.kind == TokenKind.Fn)
+            FnDecl();
+        else
+            SynErr(30);
+    }
 
-		// store scope locals in parent object for easier access and better debugging
-		obj.Locals = SymTab.CurScope.Locals;
-		SymTab.CloseScope();
-		// type comes after function declaration
-		obj.Type = returnType;
-		
-		StatSeq();
-		Expect(9);
-	}
+    void VarDecl()
+    {
+        var kind = ObjKind.Var;
+        Expect(TokenKind.Var);
+        Expect(TokenKind.Ident);
+        var name = t.val;
 
-	Struct Type() {
-		Expect(1);
+        Expect(TokenKind.Colon);
+        var type = Type();
+        Expect(TokenKind.Semicolon);
 
-		var typeObj = SymTab.Find(t.val);
-		
-		return typeObj.Type;
-	}
+        SymTab.Insert(kind, name, type);
+    }
 
-	Struct Parameters() {
-		Expect(10);
-		if (la.kind == 1) {
-			Param();
-			while (la.kind == 11) {
-				Get();
-				Param();
-			}
-		}
-		Expect(12);
-		if (la.kind == 5) {
-			Get();
-			return Type();
-		}
+    void FnDecl()
+    {
+        var kind = ObjKind.Func;
+        Expect(TokenKind.Fn);
+        Expect(TokenKind.Ident);
+        var name = t.val;
+        var obj = SymTab.Insert(kind, name, null);
 
-		return new Struct(StructKind.Void);
-	}
+        SymTab.OpenScope();
+        var returnType = Parameters();
 
-	void StatSeq() {
-		Statement();
-		while (StartOf(1)) {
-			Statement();
-		}
-	}
+        Expect(TokenKind.LBrace);
+        while (la.kind == TokenKind.Var)
+        {
+            VarDecl();
+        }
 
-	void Param() {
-		var kind = ObjKind.Var;
-		Expect(1);
-		var name = t.val;
-		Expect(5);
-		var type = Type();
-		SymTab.Insert(kind, name, type);
-	}
+        obj.Locals = SymTab.CurScope.Locals;
+        SymTab.CloseScope();
+        obj.Type = returnType;
 
-	void Statement() {
-		if (la.kind == 1) {
-			Get();
-			if (la.kind == 13) {
-				Get();
-				Expression();
-			} else if (la.kind == 10) {
-				ActParameters();
-			} else SynErr(31);
-			Expect(6);
-		} else if (la.kind == 14) {
-			Get();
-			Expect(10);
-			Condition();
-			Expect(12);
-			Expect(8);
-			StatSeq();
-			Expect(9);
-			while (la.kind == 15) {
-				Get();
-				Expect(10);
-				Condition();
-				Expect(12);
-				Expect(8);
-				StatSeq();
-				Expect(9);
-			}
-			if (la.kind == 16) {
-				Get();
-				Expect(8);
-				StatSeq();
-				Expect(9);
-			}
-		} else if (la.kind == 17) {
-			Get();
-			Expect(10);
-			Condition();
-			Expect(12);
-			Expect(8);
-			StatSeq();
-			Expect(9);
-		} else if (la.kind == 18) {
-			Get();
-			if (StartOf(2)) {
-				Expression();
-			}
-			Expect(6);
-		} else SynErr(32);
-	}
+        StatSeq();
+        Expect(TokenKind.RBrace);
+    }
 
-	void Expression() {
-		if (la.kind == 24 || la.kind == 25) {
-			Addop();
-		}
-		Term();
-		while (la.kind == 24 || la.kind == 25) {
-			Addop();
-			Term();
-		}
-	}
+    Struct Type()
+    {
+        Expect(TokenKind.Ident);
+        var typeObj = SymTab.Find(t.val);
+        return typeObj.Type;
+    }
 
-	void ActParameters() {
-		Expect(10);
-		if (StartOf(2)) {
-			Expression();
-			while (la.kind == 11) {
-				Get();
-				Expression();
-			}
-		}
-		Expect(12);
-	}
+    Struct Parameters()
+    {
+        Expect(TokenKind.LParen);
+        if (la.kind == TokenKind.Ident)
+        {
+            Param();
+            while (la.kind == TokenKind.Comma)
+            {
+                Get();
+                Param();
+            }
+        }
+        Expect(TokenKind.RParen);
+        if (la.kind == TokenKind.Colon)
+        {
+            Get();
+            return Type();
+        }
+        return new Struct(StructKind.Void);
+    }
 
-	void Condition() {
-		Expression();
-		Relop();
-		Expression();
-	}
+    void Param()
+    {
+        var kind = ObjKind.Var;
+        Expect(TokenKind.Ident);
+        var name = t.val;
+        Expect(TokenKind.Colon);
+        var type = Type();
+        SymTab.Insert(kind, name, type);
+    }
 
-	void Relop() {
-		switch (la.kind) {
-			case 13: {
-				Get();
-				break;
-			}
-			case 19: {
-				Get();
-				break;
-			}
-			case 20: {
-				Get();
-				break;
-			}
-			case 21: {
-				Get();
-				break;
-			}
-			case 22: {
-				Get();
-				break;
-			}
-			case 23: {
-				Get();
-				break;
-			}
-			default: SynErr(33); break;
-		}
-	}
+    void StatSeq()
+    {
+        Statement();
+        while (StartOf(1))
+        {
+            Statement();
+        }
+    }
 
-	void Addop() {
-		if (la.kind == 24) {
-			Get();
-		} else if (la.kind == 25) {
-			Get();
-		} else SynErr(34);
-	}
+    void Statement()
+    {
+        if (la.kind == TokenKind.Ident)
+        {
+            Get();
+            if (la.kind == TokenKind.Assign)
+            {
+                Get();
+                Expression();
+            }
+            else if (la.kind == TokenKind.LParen)
+            {
+                ActParameters();
+            }
+            else SynErr(31);
+            Expect(TokenKind.Semicolon);
+        }
+        else if (la.kind == TokenKind.If)
+        {
+            Get();
+            Expect(TokenKind.LParen);
+            Condition();
+            Expect(TokenKind.RParen);
+            Expect(TokenKind.LBrace);
+            StatSeq();
+            Expect(TokenKind.RBrace);
+            while (la.kind == TokenKind.Elseif)
+            {
+                Get();
+                Expect(TokenKind.LParen);
+                Condition();
+                Expect(TokenKind.RParen);
+                Expect(TokenKind.LBrace);
+                StatSeq();
+                Expect(TokenKind.RBrace);
+            }
+            if (la.kind == TokenKind.Else)
+            {
+                Get();
+                Expect(TokenKind.LBrace);
+                StatSeq();
+                Expect(TokenKind.RBrace);
+            }
+        }
+        else if (la.kind == TokenKind.While)
+        {
+            Get();
+            Expect(TokenKind.LParen);
+            Condition();
+            Expect(TokenKind.RParen);
+            Expect(TokenKind.LBrace);
+            StatSeq();
+            Expect(TokenKind.RBrace);
+        }
+        else if (la.kind == TokenKind.Return)
+        {
+            Get();
+            if (StartOf(2))
+            {
+                Expression();
+            }
+            Expect(TokenKind.Semicolon);
+        }
+        else SynErr(32);
+    }
 
-	void Term() {
-		Factor();
-		while (la.kind == 26 || la.kind == 27 || la.kind == 28) {
-			Mulop();
-			Factor();
-		}
-	}
+    void Expression()
+    {
+        if (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
+        {
+            Addop();
+        }
+        Term();
+        while (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
+        {
+            Addop();
+            Term();
+        }
+    }
 
-	void Factor() {
-		if (la.kind == 1) {
-			Get();
-			if (la.kind == 10) {
-				ActParameters();
-			}
-		} else if (la.kind == 2) {
-			Get();
-		} else if (la.kind == 3) {
-			Get();
-		} else if (la.kind == 10) {
-			Get();
-			Expression();
-			Expect(12);
-		} else SynErr(35);
-	}
+    void ActParameters()
+    {
+        Expect(TokenKind.LParen);
+        if (StartOf(2))
+        {
+            Expression();
+            while (la.kind == TokenKind.Comma)
+            {
+                Get();
+                Expression();
+            }
+        }
+        Expect(TokenKind.RParen);
+    }
 
-	void Mulop() {
-		if (la.kind == 26) {
-			Get();
-		} else if (la.kind == 27) {
-			Get();
-		} else if (la.kind == 28) {
-			Get();
-		} else SynErr(36);
-	}
+    void Condition()
+    {
+        Expression();
+        Relop();
+        Expression();
+    }
 
+    void Relop()
+    {
+        switch ((TokenKind)la.kind)
+        {
+            case TokenKind.Assign:    Get(); break;
+            case TokenKind.Hash:      Get(); break;
+            case TokenKind.Less:      Get(); break;
+            case TokenKind.Greater:   Get(); break;
+            case TokenKind.GreaterEq: Get(); break;
+            case TokenKind.LessEq:    Get(); break;
+            default: SynErr(33); break;
+        }
+    }
 
+    void Addop()
+    {
+        if (la.kind == TokenKind.Plus)       Get();
+        else if (la.kind == TokenKind.Minus)  Get();
+        else SynErr(34);
+    }
 
-	public void Parse() {
-		la = new Token();
-		la.val = "";		
-		Get();
-		SimpleLang();
-		Expect(0);
-	}
-	
-	static readonly bool[,] set = {
-		{_T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
-		{_x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
-		{_x,_T,_T,_T, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_T,_x,_x, _x,_x,_x}
+    void Term()
+    {
+        Factor();
+        while (la.kind == TokenKind.Star || la.kind == TokenKind.Slash || la.kind == TokenKind.Percent)
+        {
+            Mulop();
+            Factor();
+        }
+    }
 
-	};
-} // end Parser
+    void Factor()
+    {
+        if (la.kind == TokenKind.Ident)
+        {
+            Get();
+            if (la.kind == TokenKind.LParen)
+                ActParameters();
+        }
+        else if (la.kind == TokenKind.Number)  Get();
+        else if (la.kind == TokenKind.CharCon) Get();
+        else if (la.kind == TokenKind.LParen)
+        {
+            Get();
+            Expression();
+            Expect(TokenKind.RParen);
+        }
+        else SynErr(35);
+    }
+
+    void Mulop()
+    {
+        if (la.kind == TokenKind.Star)         Get();
+        else if (la.kind == TokenKind.Slash)   Get();
+        else if (la.kind == TokenKind.Percent) Get();
+        else SynErr(36);
+    }
+
+    public void Parse()
+    {
+        la = new Token();
+        la.val = "";
+        Get();
+        SimpleLang();
+        Expect(TokenKind.Eof);
+    }
+
+    static readonly bool[,] set = {
+        {_T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+        {_x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
+        {_x,_T,_T,_T, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_T,_x,_x, _x,_x,_x}
+    };
+}
 
 
 public class Errors {
-	public int count = 0;                                    // number of errors detected
+	public int count = 0;                                    // number of overall errors detected
+	public int synCount = 0;								 // number of syntax errors detected
 	public System.IO.TextWriter errorStream = Console.Out;   // error messages go to this stream
 	public string errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
 
@@ -400,6 +416,7 @@ public class Errors {
 		}
 		errorStream.WriteLine(errMsgFormat, line, col, s);
 		count++;
+		synCount++;
 	}
 
 	public virtual void SemErr (int line, int col, string s) {
