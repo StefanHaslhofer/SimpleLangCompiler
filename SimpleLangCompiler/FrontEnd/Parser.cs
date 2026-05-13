@@ -194,16 +194,16 @@ public class Parser
         if (la.kind == TokenKind.Ident)
         {
             Get();
-            Struct? x = SymTab.Find(t.val).Type;
+            // TODO check if function or variable
+            Operand x = new Operand(SymTab.Find(t.val).Type!, OperandKind.Var);
             
             if (la.kind == TokenKind.Assign)
             {
                 Get();
-                Struct? y = Expression();
-                if (x?.Kind != y?.Kind)
-                {
-                    errors.SemErr(Errors.DifferentTypes);
-                }
+                Operand? y = Expression();
+                // TODO SymTab.IsAssignable(x, y);
+                CheckTypeCompatibility(x, y);
+                
             }
             else if (la.kind == TokenKind.LParen)
             {
@@ -261,22 +261,18 @@ public class Parser
         else SynErr(32);
     }
 
-    Struct? Expression()
+    Operand? Expression()
     {
         if (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
         {
             Addop();
         }
-        Struct? x = Term();
+        Operand? x = Term();
         while (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
         {
             Addop();
-            Struct? y = Term();
-
-            if (x?.Kind != y?.Kind)
-            {
-                errors.SemErr(Errors.DifferentTypes);
-            }
+            Operand? y = Term();
+            CheckTypeCompatibility(x, y);
         }
 
         return x;
@@ -287,16 +283,12 @@ public class Parser
         Expect(TokenKind.LParen);
         if (StartOf(2))
         {
-            Struct? x = Expression();
+            Operand? x = Expression();
             while (la.kind == TokenKind.Comma)
             {
                 Get();
-                Struct? y = Expression();
-                
-                if (x?.Kind != y?.Kind)
-                {
-                    errors.SemErr(Errors.DifferentTypes);
-                }
+                Operand? y = Expression();
+                CheckTypeCompatibility(x, y);
             }
         }
         Expect(TokenKind.RParen);
@@ -304,14 +296,11 @@ public class Parser
 
     void Condition()
     {
-        Struct? x = Expression();
+        Operand? x = Expression();
         Relop();
-        Struct? y = Expression();
+        Operand? y = Expression();
 
-        if (x?.Kind != y?.Kind)
-        {
-            errors.SemErr(Errors.DifferentTypes);
-        }
+        CheckTypeCompatibility(x, y);
     }
 
     void Relop()
@@ -335,15 +324,15 @@ public class Parser
         else SynErr(34);
     }
 
-    Struct? Term()
+    Operand? Term()
     {
-        Struct? x = Factor();
+        Operand? x = Factor();
         while (la.kind == TokenKind.Star || la.kind == TokenKind.Slash || la.kind == TokenKind.Percent)
         {
             Mulop();
-            Struct? y = Factor();
+            Operand? y = Factor();
 
-            if (x?.Kind != StructKind.Int || y?.Kind != StructKind.Int)
+            if (x?.Struct.Type != StructKind.Int || y?.Struct.Type != StructKind.Int)
             {
                 errors.SemErr(Errors.IntegerNeeded);
             }
@@ -352,25 +341,26 @@ public class Parser
         return x;
     }
 
-    Struct? Factor()
+    Operand? Factor()
     {
-        Struct? s = null;
+        Operand? op = null;
         if (la.kind == TokenKind.Ident)
         {
             Get();
-            s = SymTab.Find(t.val).Type;
+            // TODO check if it's a variable or function
+            op = new Operand(SymTab.Find(t.val).Type!, OperandKind.Var);
             if (la.kind == TokenKind.LParen)
                 ActParameters();
         }
         else if (la.kind == TokenKind.Number)
         {
             Get();
-            s = new Struct(StructKind.Int);
+            op = new Operand(new Struct(StructKind.Int), OperandKind.Val);
         }
         else if (la.kind == TokenKind.CharCon)
         {
             Get();
-            s = new Struct(StructKind.Char);
+            op = new Operand(new Struct(StructKind.Char), OperandKind.Val);
         }
         else if (la.kind == TokenKind.LParen)
         {
@@ -380,7 +370,7 @@ public class Parser
         }
         else SynErr(35);
 
-        return s;
+        return op;
     }
 
     void Mulop()
@@ -389,6 +379,17 @@ public class Parser
         else if (la.kind == TokenKind.Slash)   Get();
         else if (la.kind == TokenKind.Percent) Get();
         else SynErr(36);
+    }
+
+    /// <summary>
+    ///     Semantic error if operand types are not equal. 
+    /// </summary>
+    private void CheckTypeCompatibility(Operand? x, Operand? y)
+    {
+        if (x?.Struct.Type != y?.Struct.Type)
+        {
+            errors.SemErr(Errors.DifferentTypes);
+        }
     }
 
     public void Parse()

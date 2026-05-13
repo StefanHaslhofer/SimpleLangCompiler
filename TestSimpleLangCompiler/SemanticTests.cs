@@ -175,6 +175,19 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1, 2);
         }
     ");
+    
+    [Fact]
+    public void ValidBuiltInFunctionCalls() => SemOk(@"
+        fn main() {
+            var x: int;
+            var a: char;
+            
+            put('a');
+            putLn();
+            x = ord('a');
+            a = chr(x);
+        }
+    ");
  
     [Fact]
     public void ValidRecursiveFunction() => SemOk(@"
@@ -274,6 +287,41 @@ public class SemanticTests(ITestOutputHelper output)
     [Fact]
     public void ErrorAssignToFunction() => SemErr(@"
         fn foo() {
+            return;
+        }
+ 
+        fn main() {
+            foo = 5;
+        }
+    ");
+    
+    [Fact]
+    public void ErrorAssignVarToFunction() => SemErr(@"
+        fn foo(): int {
+            return 1;
+        }
+ 
+        fn main() {
+            var x: int
+            foo = x;
+        }
+    ");
+    
+    [Fact]
+    public void ErrorAssignFunctionToVar() => SemErr(@"
+        fn foo(): int {
+            return 1;
+        }
+ 
+        fn main() {
+            var x: int;
+            x = foo;
+        }
+    ");
+    
+    [Fact]
+    public void ErrorAssignToFunctionCorrectType() => SemErr(@"
+        fn foo(): int {
             return;
         }
  

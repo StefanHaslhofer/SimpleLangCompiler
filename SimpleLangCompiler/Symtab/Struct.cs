@@ -10,8 +10,8 @@ public enum StructKind
 /// <summary>
 ///     Type system of our language.
 /// </summary>
-public class Struct(StructKind kind)
+public class Struct(StructKind type)
 {
     // currently only kind needed because classes are not supported by the grammar
-    public StructKind Kind = kind;
+    public StructKind Type = type;
 }

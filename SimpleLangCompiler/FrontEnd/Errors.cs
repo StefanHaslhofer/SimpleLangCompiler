@@ -8,6 +8,7 @@ public class Errors {
 
     public const string IntegerNeeded = "operands must be of type int";
     public const string DifferentTypes = "operands must be of same type";
+    public const string NotAssignable = "value cannot be assigned";
     
 	public virtual void SynErr (int line, int col, int n) {
 		string s;
