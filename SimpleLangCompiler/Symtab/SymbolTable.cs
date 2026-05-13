@@ -99,4 +99,39 @@ public class SymbolTable
     public void CloseScope(){
         CurScope = CurScope.Outer!;
     }
+    
+    /// <summary>
+    ///     Semantic error if operand types are not equal. 
+    /// </summary>
+    public bool CheckTypeCompatibility(Operand? x, Operand? y)
+    {
+        if (x?.Struct.Type != y?.Struct.Type)
+        {
+            _parser.SemErr(Errors.DifferentTypes);
+            return false;
+        }
+
+        return true;
+    }
+    
+    /// <summary>
+    ///     Semantic error if operand y is not assignable to x. 
+    /// </summary>
+    public bool CheckAssignability(Operand? x, Operand? y)
+    {
+        if(x == null || y == null || x.Kind == OperandKind.None || y.Kind == OperandKind.None)
+        {
+            _parser.SemErr(Errors.UnexpectedOperand);
+            return false;
+        }
+        
+        if (x.Kind == OperandKind.Func)
+        {
+            _parser.SemErr(Errors.NoFuncAssignment);
+            return false;
+            
+        }
+        
+        return true;
+    }
 }

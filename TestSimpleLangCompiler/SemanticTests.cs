@@ -211,6 +211,22 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
+    
+    [Fact]
+    public void ValidFunctionAddOp() => SemOk(@"
+        fn foo(): int {
+            return 1;
+        }
+
+        fn bar(a: int, b: int): int {
+            return a + b;        
+        }
+
+        fn main() {
+            var x: int;
+            x = foo() + bar(1, 2);
+        }
+    ");
  
     // =========================
     // Invalid programs
@@ -302,20 +318,8 @@ public class SemanticTests(ITestOutputHelper output)
         }
  
         fn main() {
-            var x: int
-            foo = x;
-        }
-    ");
-    
-    [Fact]
-    public void ErrorAssignFunctionToVar() => SemErr(@"
-        fn foo(): int {
-            return 1;
-        }
- 
-        fn main() {
             var x: int;
-            x = foo;
+            foo = x;
         }
     ");
     
@@ -327,15 +331,6 @@ public class SemanticTests(ITestOutputHelper output)
  
         fn main() {
             foo = 5;
-        }
-    ");
- 
-    [Fact]
-    public void ErrorCallVariableAsFunction() => SemErr(@"
-        var x: int;
- 
-        fn main() {
-            x(1);
         }
     ");
  

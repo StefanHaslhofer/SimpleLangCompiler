@@ -9,6 +9,8 @@ public class Errors {
     public const string IntegerNeeded = "operands must be of type int";
     public const string DifferentTypes = "operands must be of same type";
     public const string NotAssignable = "value cannot be assigned";
+    public const string NoFuncAssignment = "assignment to a function is not allowed";
+    public const string UnexpectedOperand = "value, variable or function call expected";
     
 	public virtual void SynErr (int line, int col, int n) {
 		string s;
@@ -50,6 +52,7 @@ public class Errors {
 			case 34: s = "invalid Addop"; break;
 			case 35: s = "invalid Factor"; break;
 			case 36: s = "invalid Mulop"; break;
+			case 37: s = "invalid function call"; break;
 
 			default: s = "error " + n; break;
 		}

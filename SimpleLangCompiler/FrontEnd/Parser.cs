@@ -194,19 +194,26 @@ public class Parser
         if (la.kind == TokenKind.Ident)
         {
             Get();
-            // TODO check if function or variable
-            Operand x = new Operand(SymTab.Find(t.val).Type!, OperandKind.Var);
+            Obj o = SymTab.Find(t.val);
+            Operand x = new Operand(o.Type!, GetOpKind(t.val));
             
             if (la.kind == TokenKind.Assign)
             {
                 Get();
                 Operand? y = Expression();
-                // TODO SymTab.IsAssignable(x, y);
-                CheckTypeCompatibility(x, y);
-                
+                // TODO if y is a function, check if it gets called correctly
+                //  (1. if there are parenthesis and 2. the correct amount of params)
+                if (SymTab.CheckTypeCompatibility(x, y))
+                {
+                    SymTab.CheckAssignability(x, y);
+                }
             }
             else if (la.kind == TokenKind.LParen)
             {
+                if (o.Kind != ObjKind.Func)
+                {
+                    SynErr(37);
+                }
                 ActParameters();
             }
             else SynErr(31);
@@ -261,6 +268,18 @@ public class Parser
         else SynErr(32);
     }
 
+    private OperandKind GetOpKind(string val)
+    {
+        Obj o = SymTab.Find(val);
+        
+        return o.Kind switch
+        {
+            ObjKind.Var => OperandKind.Var,
+            ObjKind.Func => OperandKind.Func,
+            _ => OperandKind.None
+        };
+    }
+
     Operand? Expression()
     {
         if (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
@@ -272,7 +291,7 @@ public class Parser
         {
             Addop();
             Operand? y = Term();
-            CheckTypeCompatibility(x, y);
+            SymTab.CheckTypeCompatibility(x, y);
         }
 
         return x;
@@ -288,7 +307,7 @@ public class Parser
             {
                 Get();
                 Operand? y = Expression();
-                CheckTypeCompatibility(x, y);
+                SymTab.CheckTypeCompatibility(x, y);
             }
         }
         Expect(TokenKind.RParen);
@@ -300,7 +319,7 @@ public class Parser
         Relop();
         Operand? y = Expression();
 
-        CheckTypeCompatibility(x, y);
+        SymTab.CheckTypeCompatibility(x, y);
     }
 
     void Relop()
@@ -334,10 +353,10 @@ public class Parser
 
             if (x?.Struct.Type != StructKind.Int || y?.Struct.Type != StructKind.Int)
             {
-                errors.SemErr(Errors.IntegerNeeded);
+                SemErr(Errors.IntegerNeeded);
             }
         }
-
+        
         return x;
     }
 
@@ -347,10 +366,22 @@ public class Parser
         if (la.kind == TokenKind.Ident)
         {
             Get();
-            // TODO check if it's a variable or function
-            op = new Operand(SymTab.Find(t.val).Type!, OperandKind.Var);
+            Obj o = SymTab.Find(t.val);
+            op = new Operand(o.Type!, OperandKind.Var);
             if (la.kind == TokenKind.LParen)
+            {
+                if (o.Kind != ObjKind.Func)
+                {
+                    SynErr(37);
+                }
+                // operand is a function if parenthesis opens after identifier
+                op.Kind = OperandKind.Func;
+                // todo cset OpKind = func only if params are correct
                 ActParameters();
+            } else if (o.Kind == ObjKind.Func)
+            {
+                SynErr(10);
+            }
         }
         else if (la.kind == TokenKind.Number)
         {
@@ -379,17 +410,6 @@ public class Parser
         else if (la.kind == TokenKind.Slash)   Get();
         else if (la.kind == TokenKind.Percent) Get();
         else SynErr(36);
-    }
-
-    /// <summary>
-    ///     Semantic error if operand types are not equal. 
-    /// </summary>
-    private void CheckTypeCompatibility(Operand? x, Operand? y)
-    {
-        if (x?.Struct.Type != y?.Struct.Type)
-        {
-            errors.SemErr(Errors.DifferentTypes);
-        }
     }
 
     public void Parse()

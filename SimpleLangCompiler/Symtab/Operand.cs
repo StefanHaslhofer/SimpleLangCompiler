@@ -4,11 +4,12 @@ public enum OperandKind
 {
     Var,
     Func,
-    Val
+    Val,
+    None
 }
 
 public class Operand(Struct s, OperandKind kind)
 {
     public readonly Struct Struct = s;
-    public readonly OperandKind Kind = kind;
+    public OperandKind Kind = kind;
 }

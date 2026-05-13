@@ -164,10 +164,29 @@ public class ParserTests(ITestOutputHelper output)
     [Fact] public void TestMissingSemicolon() => AnalyzeErr("var x: int");
 
     [Fact] public void TestMissingColon() => AnalyzeErr("var x int;");
-
+    
     [Fact] public void TestInvalidAssignment() => AnalyzeErr(@"
         fn main() {
             = 5;
+        }
+    ");
+    
+    [Fact]
+    public void ErrorCallVariableAsFunction() => AnalyzeErr(@"
+        var x: int;
+ 
+        fn main() {
+            x(1);
+        }
+    ");
+    
+    [Fact]
+    public void ErrorCallVariableAsFunction2() => AnalyzeErr(@"
+        var x: int;
+ 
+        fn main() {
+            var y: int;
+            y = x(1);
         }
     ");
 
@@ -194,6 +213,18 @@ public class ParserTests(ITestOutputHelper output)
         fn main() {
             var c: char;
             c = '';
+        }
+    ");
+    
+    [Fact]
+    public void ErrorAssignFunctionToVar() => AnalyzeErr(@"
+        fn foo(): int {
+            return 1;
+        }
+ 
+        fn main() {
+            var x: int;
+            x = foo;
         }
     ");
 }
