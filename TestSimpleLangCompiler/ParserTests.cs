@@ -14,12 +14,12 @@ public class ParserTests(ITestOutputHelper output)
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
-        parser.errors.errorStream = sw;
+        parser.Errors.errorStream = sw;
 
         parser.Parse();
 
         output.WriteLine(sw.ToString());
-        Assert.Equal(0, parser.errors.synCount);
+        Assert.Equal(0, parser.Errors.synCount);
     }
 
     private void AnalyzeErr(string input)
@@ -27,12 +27,12 @@ public class ParserTests(ITestOutputHelper output)
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
-        parser.errors.errorStream = sw;
+        parser.Errors.errorStream = sw;
 
         parser.Parse();
 
         output.WriteLine(sw.ToString());
-        Assert.True(parser.errors.synCount > 0);
+        Assert.True(parser.Errors.synCount > 0);
     }
 
     #region ValidPrograms

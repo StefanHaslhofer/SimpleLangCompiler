@@ -6,32 +6,32 @@ public class Parser
 {
     const bool _T = true;
     const bool _x = false;
-    const int minErrDist = 2;
+    const int MinErrDist = 2;
 
-    public Scanner scanner;
-    public Errors errors;
+    public Scanner Scanner;
+    public Errors Errors;
     public readonly SymbolTable SymTab;
 
-    public Token t;   // last recognized token
-    public Token la;  // lookahead token
-    int errDist = minErrDist;
+    public Token T;   // last recognized token
+    public Token La;  // lookahead token
+    int errDist = MinErrDist;
 
     public Parser(Scanner scanner)
     {
-        this.scanner = scanner;
+        Scanner = scanner;
         SymTab = new SymbolTable(this);
-        errors = new Errors();
+        Errors = new Errors();
     }
 
     void SynErr(int n)
     {
-        if (errDist >= minErrDist) errors.SynErr(la.line, la.col, n);
+        if (errDist >= MinErrDist) Errors.SynErr(La.line, La.col, n);
         errDist = 0;
     }
 
     public void SemErr(string msg)
     {
-        if (errDist >= minErrDist) errors.SemErr(t.line, t.col, msg);
+        if (errDist >= MinErrDist) Errors.SemErr(T.line, T.col, msg);
         errDist = 0;
     }
 
@@ -39,26 +39,26 @@ public class Parser
     {
         for (;;)
         {
-            t = la;
-            la = scanner.Scan();
-            if (la.kind <= TokenKind.NoSym) { ++errDist; break; }
-            la = t;
+            T = La;
+            La = Scanner.Scan();
+            if (La.kind <= TokenKind.NoSym) { ++errDist; break; }
+            La = T;
         }
     }
 
     void Expect(TokenKind n)
     {
-        if (la.kind == n) Get(); else SynErr((int)n);
+        if (La.kind == n) Get(); else SynErr((int)n);
     }
 
     bool StartOf(int s)
     {
-        return set[s, (int)la.kind];
+        return set[s, (int)La.kind];
     }
 
     void ExpectWeak(TokenKind n, int follow)
     {
-        if (la.kind == n) Get();
+        if (La.kind == n) Get();
         else
         {
             SynErr((int)n);
@@ -68,7 +68,7 @@ public class Parser
 
     bool WeakSeparator(TokenKind n, int syFol, int repFol)
     {
-        TokenKind kind = la.kind;
+        TokenKind kind = La.kind;
         if (kind == n) { Get(); return true; }
         else if (StartOf(repFol)) { return false; }
         else
@@ -77,7 +77,7 @@ public class Parser
             while (!(set[syFol, (int)kind] || set[repFol, (int)kind] || set[0, (int)kind]))
             {
                 Get();
-                kind = la.kind;
+                kind = La.kind;
             }
             return StartOf(syFol);
         }
@@ -86,7 +86,7 @@ public class Parser
     void SimpleLang()
     {
         Declaration();
-        while (la.kind == TokenKind.Var || la.kind == TokenKind.Fn)
+        while (La.kind == TokenKind.Var || La.kind == TokenKind.Fn)
         {
             Declaration();
         }
@@ -94,9 +94,9 @@ public class Parser
 
     void Declaration()
     {
-        if (la.kind == TokenKind.Var)
+        if (La.kind == TokenKind.Var)
             VarDecl();
-        else if (la.kind == TokenKind.Fn)
+        else if (La.kind == TokenKind.Fn)
             FnDecl();
         else
             SynErr(30);
@@ -107,7 +107,7 @@ public class Parser
         var kind = ObjKind.Var;
         Expect(TokenKind.Var);
         Expect(TokenKind.Ident);
-        var name = t.val;
+        var name = T.val;
 
         Expect(TokenKind.Colon);
         var type = Type();
@@ -121,7 +121,7 @@ public class Parser
         var kind = ObjKind.Func;
         Expect(TokenKind.Fn);
         Expect(TokenKind.Ident);
-        var name = t.val;
+        var name = T.val;
         var obj = SymTab.Insert(kind, name, null);
 
         SymTab.OpenScope();
@@ -129,7 +129,7 @@ public class Parser
         var returnType = Parameters();
 
         Expect(TokenKind.LBrace);
-        while (la.kind == TokenKind.Var)
+        while (La.kind == TokenKind.Var)
         {
             VarDecl();
         }
@@ -146,24 +146,24 @@ public class Parser
     Struct Type()
     {
         Expect(TokenKind.Ident);
-        var typeObj = SymTab.Find(t.val);
+        var typeObj = SymTab.Find(T.val);
         return typeObj.Type!;
     }
 
     Struct Parameters()
     {
         Expect(TokenKind.LParen);
-        if (la.kind == TokenKind.Ident)
+        if (La.kind == TokenKind.Ident)
         {
             Param();
-            while (la.kind == TokenKind.Comma)
+            while (La.kind == TokenKind.Comma)
             {
                 Get();
                 Param();
             }
         }
         Expect(TokenKind.RParen);
-        if (la.kind == TokenKind.Colon)
+        if (La.kind == TokenKind.Colon)
         {
             Get();
             return Type();
@@ -176,7 +176,7 @@ public class Parser
     {
         var kind = ObjKind.Var;
         Expect(TokenKind.Ident);
-        var name = t.val;
+        var name = T.val;
         Expect(TokenKind.Colon);
         var type = Type();
         SymTab.Insert(kind, name, type);
@@ -195,13 +195,13 @@ public class Parser
     void Statement()
     {
         Operand? x = null;
-        if (la.kind == TokenKind.Ident)
+        if (La.kind == TokenKind.Ident)
         {
             Get();
-            Obj o = SymTab.Find(t.val);
-            x = new Operand(o.Type!, GetOpKind(t.val));
+            Obj o = SymTab.Find(T.val);
+            x = new Operand(o.Type!, GetOpKind(T.val));
             
-            if (la.kind == TokenKind.Assign)
+            if (La.kind == TokenKind.Assign)
             {
                 Get();
                 Operand? y = Expression();
@@ -210,7 +210,7 @@ public class Parser
                     SymTab.CheckAssignability(x, y);
                 }
             }
-            else if (la.kind == TokenKind.LParen)
+            else if (La.kind == TokenKind.LParen)
             {
                 if (o.Kind != ObjKind.Func)
                 {
@@ -221,7 +221,7 @@ public class Parser
             else SynErr(31);
             Expect(TokenKind.Semicolon);
         }
-        else if (la.kind == TokenKind.If)
+        else if (La.kind == TokenKind.If)
         {
             Get();
             Expect(TokenKind.LParen);
@@ -230,7 +230,7 @@ public class Parser
             Expect(TokenKind.LBrace);
             StatSeq();
             Expect(TokenKind.RBrace);
-            while (la.kind == TokenKind.Elseif)
+            while (La.kind == TokenKind.Elseif)
             {
                 Get();
                 Expect(TokenKind.LParen);
@@ -240,7 +240,7 @@ public class Parser
                 StatSeq();
                 Expect(TokenKind.RBrace);
             }
-            if (la.kind == TokenKind.Else)
+            if (La.kind == TokenKind.Else)
             {
                 Get();
                 Expect(TokenKind.LBrace);
@@ -248,7 +248,7 @@ public class Parser
                 Expect(TokenKind.RBrace);
             }
         }
-        else if (la.kind == TokenKind.While)
+        else if (La.kind == TokenKind.While)
         {
             Get();
             Expect(TokenKind.LParen);
@@ -258,7 +258,7 @@ public class Parser
             StatSeq();
             Expect(TokenKind.RBrace);
         }
-        else if (la.kind == TokenKind.Return)
+        else if (La.kind == TokenKind.Return)
         {
             Get();
             x = new Operand(SymTab.VoidType, OperandKind.None);
@@ -288,12 +288,12 @@ public class Parser
 
     Operand Expression()
     {
-        if (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
+        if (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
         }
         Operand x = Term();
-        while (la.kind == TokenKind.Plus || la.kind == TokenKind.Minus)
+        while (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
             Operand y = Term();
@@ -305,7 +305,7 @@ public class Parser
 
     void ActParameters()
     {
-        Obj fnc = SymTab.Find(t.val);
+        Obj fnc = SymTab.Find(T.val);
         Expect(TokenKind.LParen);
         int expr = 0;
         if (StartOf(2))
@@ -317,7 +317,7 @@ public class Parser
             if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type)) 
                 SemErr(Errors.WrongArgumentType);
             
-            while (la.kind == TokenKind.Comma)
+            while (La.kind == TokenKind.Comma)
             {
                 Get();
                 x = Expression();
@@ -348,7 +348,7 @@ public class Parser
 
     void Relop()
     {
-        switch (la.kind)
+        switch (La.kind)
         {
             case TokenKind.Assign:    Get(); break;
             case TokenKind.Hash:      Get(); break;
@@ -362,15 +362,15 @@ public class Parser
 
     void Addop()
     {
-        if (la.kind == TokenKind.Plus)       Get();
-        else if (la.kind == TokenKind.Minus)  Get();
+        if (La.kind == TokenKind.Plus)       Get();
+        else if (La.kind == TokenKind.Minus)  Get();
         else SynErr(34);
     }
 
     Operand Term()
     {
         Operand x = Factor();
-        while (la.kind == TokenKind.Star || la.kind == TokenKind.Slash || la.kind == TokenKind.Percent)
+        while (La.kind == TokenKind.Star || La.kind == TokenKind.Slash || La.kind == TokenKind.Percent)
         {
             Mulop();
             Operand y = Factor();
@@ -387,12 +387,12 @@ public class Parser
     Operand Factor()
     {
         Operand op = new Operand(SymTab.VoidType, OperandKind.None);
-        if (la.kind == TokenKind.Ident)
+        if (La.kind == TokenKind.Ident)
         {
             Get();
-            Obj o = SymTab.Find(t.val);
+            Obj o = SymTab.Find(T.val);
             op = new Operand(o.Type, OperandKind.Var);
-            if (la.kind == TokenKind.LParen)
+            if (La.kind == TokenKind.LParen)
             {
                 if (o.Kind != ObjKind.Func)
                 {
@@ -406,17 +406,17 @@ public class Parser
                 SynErr(10);
             }
         }
-        else if (la.kind == TokenKind.Number)
+        else if (La.kind == TokenKind.Number)
         {
             Get();
             op = new Operand(SymTab.IntType, OperandKind.Val);
         }
-        else if (la.kind == TokenKind.CharCon)
+        else if (La.kind == TokenKind.CharCon)
         {
             Get();
             op = new Operand(SymTab.CharType, OperandKind.Val);
         }
-        else if (la.kind == TokenKind.LParen)
+        else if (La.kind == TokenKind.LParen)
         {
             Get();
             op = Expression();
@@ -429,16 +429,16 @@ public class Parser
 
     void Mulop()
     {
-        if (la.kind == TokenKind.Star)         Get();
-        else if (la.kind == TokenKind.Slash)   Get();
-        else if (la.kind == TokenKind.Percent) Get();
+        if (La.kind == TokenKind.Star)         Get();
+        else if (La.kind == TokenKind.Slash)   Get();
+        else if (La.kind == TokenKind.Percent) Get();
         else SynErr(36);
     }
 
     public void Parse()
     {
-        la = new Token();
-        la.val = "";
+        La = new Token();
+        La.val = "";
         Get();
         SimpleLang();
         Expect(TokenKind.Eof);
