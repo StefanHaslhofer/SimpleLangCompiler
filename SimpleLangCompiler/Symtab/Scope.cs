@@ -1,17 +1,17 @@
 ﻿namespace SimpleLangCompiler.Symtab;
 
 /// <summary>
-/// Symbol table scopes.
+///     Symbol table scopes.
 /// </summary>
 public class Scope(Scope? outer)
 {
     /// <summary>
-    /// Reference to the outer scope.
+    ///     Reference to the outer scope.
     /// </summary>
     public Scope? Outer = outer;
 
     /// <summary>
-    /// List of objects in the scope.
+    ///     List of objects in the scope.
     /// </summary>
     public readonly LinkedList<Obj> Locals = new();
 

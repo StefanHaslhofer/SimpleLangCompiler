@@ -4,13 +4,17 @@ public class Errors {
 	public int count = 0;                                    // number of overall errors detected
 	public int synCount = 0;								 // number of syntax errors detected
 	public System.IO.TextWriter errorStream = Console.Out;   // error messages go to this stream
-	public string errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
+	private string errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
 
     public const string IntegerNeeded = "operands must be of type int";
     public const string DifferentTypes = "operands must be of same type";
     public const string NotAssignable = "value cannot be assigned";
     public const string NoFuncAssignment = "assignment to a function is not allowed";
     public const string UnexpectedOperand = "value, variable or function call expected";
+    public const string UnexpectedReturn = "void function must not return value";
+    public const string WrongReturnType = "return type does not match function type";
+    public const string MissingReturnValue = "missing return value";
+    public const string WrongArgumentType = "argument type mismatch";
     
 	public virtual void SynErr (int line, int col, int n) {
 		string s;

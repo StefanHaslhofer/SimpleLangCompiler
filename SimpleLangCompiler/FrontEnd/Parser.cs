@@ -125,6 +125,7 @@ public class Parser
         var obj = SymTab.Insert(kind, name, null);
 
         SymTab.OpenScope();
+        SymTab.CurFnc = obj;
         var returnType = Parameters();
 
         Expect(TokenKind.LBrace);
@@ -138,6 +139,7 @@ public class Parser
         StatSeq();
         
         SymTab.CloseScope();
+        SymTab.CurFnc = null;
         Expect(TokenKind.RBrace);
     }
 
@@ -178,6 +180,7 @@ public class Parser
         Expect(TokenKind.Colon);
         var type = Type();
         SymTab.Insert(kind, name, type);
+        SymTab.CurFnc!.NPars++;
     }
 
     void StatSeq()
@@ -191,18 +194,17 @@ public class Parser
 
     void Statement()
     {
+        Operand? x = null;
         if (la.kind == TokenKind.Ident)
         {
             Get();
             Obj o = SymTab.Find(t.val);
-            Operand x = new Operand(o.Type!, GetOpKind(t.val));
+            x = new Operand(o.Type!, GetOpKind(t.val));
             
             if (la.kind == TokenKind.Assign)
             {
                 Get();
                 Operand? y = Expression();
-                // TODO if y is a function, check if it gets called correctly
-                //  (1. if there are parenthesis and 2. the correct amount of params)
                 if (SymTab.CheckTypeCompatibility(x, y))
                 {
                     SymTab.CheckAssignability(x, y);
@@ -259,10 +261,12 @@ public class Parser
         else if (la.kind == TokenKind.Return)
         {
             Get();
+            x = new Operand(new Struct(StructKind.Void), OperandKind.None);
             if (StartOf(2))
             {
-                Expression();
+                x = Expression();
             }
+            SymTab.CheckTypeCompatibility(x, x);
             Expect(TokenKind.Semicolon);
         }
         else SynErr(32);
@@ -376,7 +380,6 @@ public class Parser
                 }
                 // operand is a function if parenthesis opens after identifier
                 op.Kind = OperandKind.Func;
-                // todo cset OpKind = func only if params are correct
                 ActParameters();
             } else if (o.Kind == ObjKind.Func)
             {

@@ -7,13 +7,28 @@ namespace SimpleLangCompiler.Symtab;
 /// </summary>
 public class SymbolTable
 {
+    /// <summary>
+    ///     Global type declarations.
+    /// </summary>
     public readonly Struct VoidType = new(StructKind.Void);
     public readonly Struct IntType = new(StructKind.Int);
     public readonly Struct CharType = new(StructKind.Char);
     
+    /// <summary>
+    ///     Global function and variable declarations.
+    /// </summary>
     public Obj NoObj, PutFunc, PutLnFunc, OrdFunc, ChrFunc;
-    // TODO: add all pre declared functions and types here
-    public Scope CurScope { get; set; }
+
+    /// <summary>
+    ///     Currently opened scope.
+    /// </summary>
+    public Scope CurScope;
+
+    /// <summary>
+    ///     Sets the scope of the function currently being analyzed,
+    ///     primarily used for return type validation.
+    /// </summary>
+    public Obj? CurFnc;
 
     private readonly Parser _parser;
 
