@@ -8,7 +8,6 @@ public class Errors {
 
     public const string IntegerNeeded = "operands must be of type int";
     public const string DifferentTypes = "operands must be of same type";
-    public const string NotAssignable = "value cannot be assigned";
     public const string NoFuncAssignment = "assignment to a function is not allowed";
     public const string UnexpectedOperand = "value, variable or function call expected";
     public const string UnexpectedReturnValue = "void function must not return value";
@@ -83,4 +82,4 @@ public class Errors {
 	public virtual void Warning(string s) {
 		errorStream.WriteLine(s);
 	}
-} // Errors
+}
