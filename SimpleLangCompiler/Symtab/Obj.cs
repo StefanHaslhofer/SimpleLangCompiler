@@ -7,11 +7,11 @@ public enum ObjKind
     Type
 }
 
-public class Obj(ObjKind kind, string name, Struct? type)
+public class Obj(ObjKind kind, string name, Struct type)
 {
     public string Name = name;
     public ObjKind Kind = kind;
-    public Struct? Type = type;
+    public Struct Type = type;
     
     /// <summary>
     ///     Only for Var, Fnc: address offset of the element.
@@ -23,5 +23,5 @@ public class Obj(ObjKind kind, string name, Struct? type)
     /// </summary>
     public int NPars;
 
-    public LinkedList<Obj> Locals;
+    public LinkedList<Obj> Locals = [];
 }

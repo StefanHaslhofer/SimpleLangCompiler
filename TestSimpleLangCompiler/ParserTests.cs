@@ -15,7 +15,7 @@ public class ParserTests(ITestOutputHelper output)
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
         parser.errors.errorStream = sw;
-        
+
         parser.Parse();
 
         output.WriteLine(sw.ToString());
@@ -24,45 +24,52 @@ public class ParserTests(ITestOutputHelper output)
 
     private void AnalyzeErr(string input)
     {
-        
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
         parser.errors.errorStream = sw;
-        
+
         parser.Parse();
 
         output.WriteLine(sw.ToString());
         Assert.True(parser.errors.synCount > 0);
     }
 
+    #region ValidPrograms
+
     // =========================
-    // Parse tests
+    // Valid programs
     // =========================
 
-    [Fact] public void TestMinimalVar() => AnalyzeOk("var x: int;");
+    [Fact]
+    public void TestMinimalVar() => AnalyzeOk("var x: int;");
 
-    [Fact] public void TestMultipleVars() => AnalyzeOk(@"
+    [Fact]
+    public void TestMultipleVars() => AnalyzeOk(@"
         var x: int;
         var y: int;
         var z: char;
     ");
 
-    [Fact] public void TestEmptyFunction() => AnalyzeErr(@"
+    [Fact]
+    public void TestEmptyFunction() => AnalyzeErr(@"
         fn main() { }
     ");
 
-    [Fact] public void TestFunctionReturn() => AnalyzeOk(@"
+    [Fact]
+    public void TestFunctionReturn() => AnalyzeOk(@"
         fn main() { return; }
     ");
 
-    [Fact] public void TestFunctionWithParams() => AnalyzeOk(@"
+    [Fact]
+    public void TestFunctionWithParams() => AnalyzeOk(@"
         fn add(a: int, b: int): int {
             return a + b;
         }
     ");
 
-    [Fact] public void TestLocalVars() => AnalyzeOk(@"
+    [Fact]
+    public void TestLocalVars() => AnalyzeOk(@"
         fn main() {
             var x: int;
             var y: int;
@@ -71,33 +78,38 @@ public class ParserTests(ITestOutputHelper output)
         }
     ");
 
-    [Fact] public void TestFunctionCall() => AnalyzeOk(@"
+    [Fact]
+    public void TestFunctionCall() => AnalyzeOk(@"
         fn main() {
             put(5);
         }
     ");
 
-    [Fact] public void TestExpressionPrecedence() => AnalyzeOk(@"
+    [Fact]
+    public void TestExpressionPrecedence() => AnalyzeOk(@"
         fn main() {
             var x: int;
             x = 1 + 2 * 3 - 4 / 2 % 2;
         }
     ");
 
-    [Fact] public void TestParentheses() => AnalyzeOk(@"
+    [Fact]
+    public void TestParentheses() => AnalyzeOk(@"
         fn main() {
             var x: int;
             x = (1 + 2) * (3 - 4);
         }
     ");
 
-    [Fact] public void TestIfStatement() => AnalyzeOk(@"
+    [Fact]
+    public void TestIfStatement() => AnalyzeOk(@"
         fn main() {
             if (1 = 1) { return; }
         }
     ");
 
-    [Fact] public void TestIfElseIfElse() => AnalyzeOk(@"
+    [Fact]
+    public void TestIfElseIfElse() => AnalyzeOk(@"
         fn main() {
             if (x = 1) { return; }
             elseif (x # 2) { return; }
@@ -105,7 +117,8 @@ public class ParserTests(ITestOutputHelper output)
         }
     ");
 
-    [Fact] public void TestWhileLoop() => AnalyzeOk(@"
+    [Fact]
+    public void TestWhileLoop() => AnalyzeOk(@"
         fn main() {
             while (x < 10) {
                 x = x + 1;
@@ -113,27 +126,31 @@ public class ParserTests(ITestOutputHelper output)
         }
     ");
 
-    [Fact] public void TestCallWithArgs() => AnalyzeOk(@"
+    [Fact]
+    public void TestCallWithArgs() => AnalyzeOk(@"
         fn main() {
             foo(1, 2, 3);
         }
     ");
 
-    [Fact] public void TestCharLiteral() => AnalyzeOk(@"
+    [Fact]
+    public void TestCharLiteral() => AnalyzeOk(@"
         var c: char;
         fn main() {
             c = 'a';
         }
     ");
 
-    [Fact] public void TestEscapedChar() => AnalyzeOk(@"
+    [Fact]
+    public void TestEscapedChar() => AnalyzeOk(@"
         fn main() {
             var c: char;
             c = '\n';
         }
     ");
 
-    [Fact] public void TestComments() => AnalyzeOk(@"
+    [Fact]
+    public void TestComments() => AnalyzeOk(@"
         // line comment
         var x: int;
 
@@ -143,7 +160,8 @@ public class ParserTests(ITestOutputHelper output)
         }
     ");
 
-    [Fact] public void TestNestedControl() => AnalyzeOk(@"
+    [Fact]
+    public void TestNestedControl() => AnalyzeOk(@"
         fn main() {
             if (1 = 1) {
                 while (2 = 2) {
@@ -155,22 +173,181 @@ public class ParserTests(ITestOutputHelper output)
         }
     ");
 
-    [Fact] public void TestManyParams() => AnalyzeOk(@"
+    [Fact]
+    public void TestManyParams() => AnalyzeOk(@"
         fn test(a:int,b:int,c:int,d:int,e:int,f:int): int {
             return a;
         }
     ");
 
-    [Fact] public void TestMissingSemicolon() => AnalyzeErr("var x: int");
+    [Fact]
+    public void TestNoParams() => AnalyzeOk(@"
+        fn foo(): int {
+            return 1;
+        }
+    ");
 
-    [Fact] public void TestMissingColon() => AnalyzeErr("var x int;");
+    [Fact]
+    public void TestNestedFunctionCalls() => AnalyzeOk(@"
+        fn main() {
+            foo(bar(1, 2), 3);
+        }
+    ");
+
+    [Fact]
+    public void TestAssignFromFunctionCall() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = foo();
+        }
+    ");
+
+    [Fact]
+    public void TestMultipleFunctions() => AnalyzeOk(@"
+        fn foo(): int {
+            return 1;
+        }
+
+        fn bar(): int {
+            return 2;
+        }
+
+        fn main() {
+            return;
+        }
+    ");
+
+    [Fact]
+    public void TestElseIfWithoutElse() => AnalyzeOk(@"
+        fn main() {
+            if (1 = 1) { return; }
+            elseif (2 = 2) { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestElseWithoutElseIf() => AnalyzeOk(@"
+        fn main() {
+            if (1 = 1) { return; }
+            else { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestMultipleElseIf() => AnalyzeOk(@"
+        fn main() {
+            if (1 = 1) { return; }
+            elseif (2 = 2) { return; }
+            elseif (3 = 3) { return; }
+            elseif (4 = 4) { return; }
+            else { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestAllRelops() => AnalyzeOk(@"
+        fn main() {
+            if (1 = 1) { return; }
+            if (1 # 2) { return; }
+            if (1 < 2) { return; }
+            if (1 > 2) { return; }
+            if (1 <= 2) { return; }
+            if (1 >= 2) { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestAllMulops() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = 6 * 2;
+            x = 6 / 2;
+            x = 6 % 2;
+        }
+    ");
+
+    [Fact]
+    public void TestUnaryMinus() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = -1;
+        }
+    ");
+
+    [Fact]
+    public void TestUnaryPlus() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = +1;
+        }
+    ");
+
+    [Fact]
+    public void TestLocalVarBeforeStatements() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            var y: int;
+            var z: char;
+            x = 1;
+        }
+    ");
+
+    [Fact]
+    public void TestReturnExpression() => AnalyzeOk(@"
+        fn foo(): int {
+            return 1 + 2 * 3;
+        }
+    ");
+
+    [Fact]
+    public void TestWhileWithComplexCondition() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            while (x >= 0) {
+                x = x - 1;
+            }
+        }
+    ");
+
+    [Fact]
+    public void TestZeroLiteral() => AnalyzeOk(@"
+        fn main() {
+            var x: int;
+            x = 0;
+        }
+    ");
+
+    [Fact]
+    public void TestGlobalVarAndFunction() => AnalyzeOk(@"
+        var x: int;
+        var y: char;
+
+        fn main() {
+            x = 5;
+        }
+    ");
     
-    [Fact] public void TestInvalidAssignment() => AnalyzeErr(@"
+    #endregion
+
+    #region InvalidPrograms
+    
+    // =========================
+    // Invalid programs
+    // =========================
+    
+    [Fact]
+    public void TestMissingSemicolon() => AnalyzeErr("var x: int");
+
+    [Fact]
+    public void TestMissingColon() => AnalyzeErr("var x int;");
+
+    [Fact]
+    public void TestInvalidAssignment() => AnalyzeErr(@"
         fn main() {
             = 5;
         }
     ");
-    
+
     [Fact]
     public void ErrorCallVariableAsFunction() => AnalyzeErr(@"
         var x: int;
@@ -179,7 +356,7 @@ public class ParserTests(ITestOutputHelper output)
             x(1);
         }
     ");
-    
+
     [Fact]
     public void ErrorCallVariableAsFunction2() => AnalyzeErr(@"
         var x: int;
@@ -190,32 +367,36 @@ public class ParserTests(ITestOutputHelper output)
         }
     ");
 
-    [Fact] public void TestBrokenExpression() => AnalyzeErr(@"
+    [Fact]
+    public void TestBrokenExpression() => AnalyzeErr(@"
         fn main() {
             x = 1 + ;
         }
     ");
 
-    [Fact] public void TestUnclosedBlock() => AnalyzeErr(@"
+    [Fact]
+    public void TestUnclosedBlock() => AnalyzeErr(@"
         fn main() {
             if (1 = 1) {
                 return;
         }
     ");
 
-    [Fact] public void TestInvalidFunctionSyntax() => AnalyzeErr(@"
+    [Fact]
+    public void TestInvalidFunctionSyntax() => AnalyzeErr(@"
         fn main( {
             return;
         }
     ");
 
-    [Fact] public void TestInvalidChar() => AnalyzeErr(@"
+    [Fact]
+    public void TestInvalidChar() => AnalyzeErr(@"
         fn main() {
             var c: char;
             c = '';
         }
     ");
-    
+
     [Fact]
     public void ErrorAssignFunctionToVar() => AnalyzeErr(@"
         fn foo(): int {
@@ -227,4 +408,110 @@ public class ParserTests(ITestOutputHelper output)
             x = foo;
         }
     ");
+
+    [Fact]
+    public void TestMissingFunctionBody() => AnalyzeErr(@"
+        fn main()
+    ");
+
+    [Fact]
+    public void TestMissingReturnSemicolon() => AnalyzeErr(@"
+        fn main() {
+            return
+        }
+    ");
+
+    [Fact]
+    public void TestVarDeclAfterStatement() => AnalyzeErr(@"
+        fn main() {
+            x = 5;
+            var x: int;
+        }
+    ");
+
+    [Fact]
+    public void TestMissingClosingParen() => AnalyzeErr(@"
+        fn main() {
+            if (1 = 1 { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestMissingOpeningBrace() => AnalyzeErr(@"
+        fn main()
+            return;
+        }
+    ");
+
+    [Fact]
+    public void TestEmptyParamList() => AnalyzeErr(@"
+        fn foo(a: int,): int {
+            return a;
+        }
+    ");
+
+    [Fact]
+    public void TestMissingParamType() => AnalyzeErr(@"
+        fn foo(a): int {
+            return a;
+        }
+    ");
+
+    [Fact]
+    public void TestMissingReturnType() => AnalyzeErr(@"
+        fn foo(): {
+            return;
+        }
+    ");
+
+    [Fact]
+    public void TestDoubleOperator() => AnalyzeErr(@"
+        fn main() {
+            var x: int;
+            x = 1 + * 2;
+        }
+    ");
+
+    [Fact]
+    public void TestMissingCondition() => AnalyzeErr(@"
+        fn main() {
+            if () { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestElseWithoutIf() => AnalyzeErr(@"
+        fn main() {
+            else { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestElseIfWithoutIf() => AnalyzeErr(@"
+        fn main() {
+            elseif (1 = 1) { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestMissingWhileCondition() => AnalyzeErr(@"
+        fn main() {
+            while () { return; }
+        }
+    ");
+
+    [Fact]
+    public void TestUnclosedParenInExpression() => AnalyzeErr(@"
+        fn main() {
+            var x: int;
+            x = (1 + 2;
+        }
+    ");
+
+    [Fact]
+    public void TestMissingVarType() => AnalyzeErr(@"
+        var x;
+    ");
+    
+    #endregion
 }

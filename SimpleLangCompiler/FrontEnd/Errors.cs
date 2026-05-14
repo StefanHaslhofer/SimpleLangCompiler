@@ -11,10 +11,11 @@ public class Errors {
     public const string NotAssignable = "value cannot be assigned";
     public const string NoFuncAssignment = "assignment to a function is not allowed";
     public const string UnexpectedOperand = "value, variable or function call expected";
-    public const string UnexpectedReturn = "void function must not return value";
+    public const string UnexpectedReturnValue = "void function must not return value";
     public const string WrongReturnType = "return type does not match function type";
     public const string MissingReturnValue = "missing return value";
     public const string WrongArgumentType = "argument type mismatch";
+    public const string WrongArgumentCount = "number of arguments does not match";
     
 	public virtual void SynErr (int line, int col, int n) {
 		string s;

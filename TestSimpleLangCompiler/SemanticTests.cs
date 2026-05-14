@@ -15,43 +15,76 @@ public class SemanticTests(ITestOutputHelper output)
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
         parser.errors.errorStream = sw;
-        
+
         parser.Parse();
 
         output.WriteLine(sw.ToString());
-        
+
         if (parser.errors.synCount > 0)
         {
-            throw new Exception("Syntax error");    
+            throw new Exception("Syntax error");
         }
-        
+
         Assert.Equal(0, parser.errors.count);
     }
 
     private void SemErr(string input)
     {
-        
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
         parser.errors.errorStream = sw;
-        
+
         parser.Parse();
 
         output.WriteLine(sw.ToString());
-        
+
         if (parser.errors.synCount > 0)
         {
-            throw new Exception("Syntax error");    
+            throw new Exception("Syntax error");
         }
-        
+
+        // TODO also check the content of the error message
         Assert.True(parser.errors.count > 0);
     }
+
+    #region ValidPrograms
     
     // =========================
     // Valid programs
     // =========================
- 
+    
+    [Fact]
+    public void ValidLargeProgram() => SemOk(@"
+        var i: int;
+
+        fn putInt(x: int): void { /* largest printable number = 9999 */
+            var c0: char;
+            var c1: char;
+            var c2: char;
+            var c3: char;
+
+            c3 = CHR(48 + x % 10); x = x / 10;
+            c2 = CHR(48 + x % 10); x = x / 10;
+            c1 = CHR(48 + x % 10); x = x / 10;
+            c0 = CHR(48 + x % 10);
+
+            if (c0 > '0') { put(c0); put(c1); put(c2); }
+            elseif (c1 > '0') { put(c1); put(c2); }
+            elseif (c2 > '0') { put(c2); }
+            put(c3);
+        }
+
+        fn main(): void { /* print odd numbers */
+            i = 1;
+            while (i < 100) {
+                putInt(i);
+                putLn();
+                i = i + 2;
+            }
+        }
+    ");
+
     [Fact]
     public void ValidIntAssignment() => SemOk(@"
         fn main() {
@@ -59,7 +92,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 5;
         }
     ");
- 
+
     [Fact]
     public void ValidCharAssignment() => SemOk(@"
         fn main() {
@@ -67,7 +100,7 @@ public class SemanticTests(ITestOutputHelper output)
             c = 'a';
         }
     ");
- 
+
     [Fact]
     public void ValidArithmeticExpression() => SemOk(@"
         fn main() {
@@ -75,7 +108,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 1 + 2 * 3;
         }
     ");
- 
+
     [Fact]
     public void ValidComparison() => SemOk(@"
         fn main() {
@@ -84,7 +117,7 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
- 
+
     [Fact]
     public void ValidFunctionCallTypes() => SemOk(@"
         fn foo(a: int, b: int) {
@@ -95,7 +128,7 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1, 2);
         }
     ");
-    
+
     [Fact]
     public void ValidFunctionTypes() => SemOk(@" 
         fn foo(a: int, b: int, c: int) {
@@ -108,14 +141,14 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1, 2, 3);
         }
     ");
- 
+
     [Fact]
     public void ValidReturnType() => SemOk(@"
         fn foo(): int {
             return 5;
         }
     ");
- 
+
     [Fact]
     public void ValidCharComparison() => SemOk(@"
         fn main() {
@@ -124,7 +157,7 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
- 
+
     [Fact]
     public void ValidSimpleAssignment() => SemOk(@"
         var x: int;
@@ -133,14 +166,14 @@ public class SemanticTests(ITestOutputHelper output)
             x = 5;
         }
     ");
- 
+
     [Fact]
     public void ValidFunctionParams() => SemOk(@"
         fn add(a: int, b: int): int {
             return a;
         }
     ");
- 
+
     [Fact]
     public void ValidShadowing() => SemOk(@"
         var x: int;
@@ -150,7 +183,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 10;
         }
     ");
- 
+
     [Fact]
     public void ValidNestedScope() => SemOk(@"
         fn main() {
@@ -164,7 +197,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 3;
         }
     ");
- 
+
     [Fact]
     public void ValidFunctionCall() => SemOk(@"
         fn foo(a: int, b: int) {
@@ -175,7 +208,7 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1, 2);
         }
     ");
-    
+
     [Fact]
     public void ValidBuiltInFunctionCalls() => SemOk(@"
         fn main() {
@@ -184,11 +217,11 @@ public class SemanticTests(ITestOutputHelper output)
             
             put('a');
             putLn();
-            x = ord('a');
-            a = chr(x);
+            x = ORD('a');
+            a = CHR(x);
         }
     ");
- 
+
     [Fact]
     public void ValidRecursiveFunction() => SemOk(@"
         fn fact(n: int): int {
@@ -199,7 +232,7 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
- 
+
     [Fact]
     public void ValidWhile() => SemOk(@"
         fn main() {
@@ -211,7 +244,7 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
-    
+
     [Fact]
     public void ValidFunctionAddOp() => SemOk(@"
         fn foo(): int {
@@ -227,18 +260,22 @@ public class SemanticTests(ITestOutputHelper output)
             x = foo() + bar(1, 2);
         }
     ");
- 
+    
+    #endregion
+
+    #region InvalidPrograms
+
     // =========================
     // Invalid programs
     // =========================
- 
+    
     [Fact]
     public void ErrorUndefinedVariable() => SemErr(@"
         fn main() {
             x = 5;
         }
     ");
- 
+
     [Fact]
     public void ErrorDuplicateVariable() => SemErr(@"
         fn main() {
@@ -246,7 +283,7 @@ public class SemanticTests(ITestOutputHelper output)
             var x: int;
         }
     ");
- 
+
     [Fact]
     public void ErrorDuplicateFunction() => SemErr(@"
         fn foo() {
@@ -256,14 +293,14 @@ public class SemanticTests(ITestOutputHelper output)
             return;
         }
     ");
- 
+
     [Fact]
     public void ErrorUndefinedFunctionCall() => SemErr(@"
         fn main() {
             foo(1);
         }
     ");
- 
+
     [Fact]
     public void ErrorWrongArgumentCount() => SemErr(@"
         fn foo(a: int, b: int) {
@@ -274,32 +311,33 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1);
         }
     ");
- 
+
     [Fact]
     public void ErrorVariableNotGlobal() => SemErr(@"
         fn foo() {
             var x: int;
+            return;
         }
  
         fn main() {
             x = 5;
         }
     ");
- 
+
     [Fact]
     public void ErrorDuplicateParameter() => SemErr(@"
         fn foo(a: int, a: int) {
             return;
         }
     ");
- 
+
     [Fact]
     public void ErrorParamLocalConflict() => SemErr(@"
         fn foo(a: int) {
             var a: int;
         }
     ");
- 
+
     [Fact]
     public void ErrorAssignToFunction() => SemErr(@"
         fn foo() {
@@ -310,7 +348,7 @@ public class SemanticTests(ITestOutputHelper output)
             foo = 5;
         }
     ");
-    
+
     [Fact]
     public void ErrorAssignVarToFunction() => SemErr(@"
         fn foo(): int {
@@ -322,7 +360,7 @@ public class SemanticTests(ITestOutputHelper output)
             foo = x;
         }
     ");
-    
+
     [Fact]
     public void ErrorAssignToFunctionCorrectType() => SemErr(@"
         fn foo(): int {
@@ -333,7 +371,7 @@ public class SemanticTests(ITestOutputHelper output)
             foo = 5;
         }
     ");
- 
+
     [Fact]
     public void ErrorMultipleErrors() => SemErr(@"
         fn main() {
@@ -342,7 +380,7 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1);
         }
     ");
- 
+
     [Fact]
     public void ErrorAssignCharToInt() => SemErr(@"
         fn main() {
@@ -350,7 +388,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 'a';
         }
     ");
- 
+
     [Fact]
     public void ErrorAssignIntToChar() => SemErr(@"
         fn main() {
@@ -358,7 +396,7 @@ public class SemanticTests(ITestOutputHelper output)
             c = 5;
         }
     ");
- 
+
     [Fact]
     public void ErrorArithmeticWithChar() => SemErr(@"
         fn main() {
@@ -366,7 +404,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 'a' + 1;
         }
     ");
- 
+
     [Fact]
     public void ErrorMixedComparison() => SemErr(@"
         fn main() {
@@ -375,7 +413,7 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
- 
+
     [Fact]
     public void ErrorWrongArgumentType() => SemErr(@"
         fn foo(a: int) {
@@ -386,28 +424,28 @@ public class SemanticTests(ITestOutputHelper output)
             foo('a');
         }
     ");
- 
+
     [Fact]
     public void ErrorWrongReturnType() => SemErr(@"
         fn foo(): int {
             return 'a';
         }
     ");
- 
+
     [Fact]
     public void ErrorMissingReturnValue() => SemErr(@"
         fn foo(): int {
             return;
         }
     ");
- 
+
     [Fact]
     public void ErrorUnexpectedReturnValue() => SemErr(@"
         fn foo() {
             return 5;
         }
     ");
- 
+
     [Fact]
     public void ErrorBinaryOpTypeMismatch() => SemErr(@"
         fn main() {
@@ -415,7 +453,7 @@ public class SemanticTests(ITestOutputHelper output)
             x = 1 + 'a';
         }
     ");
- 
+
     [Fact]
     public void ErrorFunctionArgumentMismatchMultiple() => SemErr(@"
         fn foo(a: int, b: char) {
@@ -426,4 +464,106 @@ public class SemanticTests(ITestOutputHelper output)
             foo(1, 2);
         }
     ");
+
+    [Fact]
+    public void ErrorReturnTypeMismatchIntVsChar() => SemErr(@"
+        fn foo(): char {
+            return 5;
+        }
+    ");
+
+    [Fact]
+    public void ErrorAssignFunctionReturnToWrongType() => SemErr(@"
+        fn foo(): int {
+            return 1;
+        }
+
+        fn main() {
+            var c: char;
+            c = foo();
+        }
+    ");
+
+    [Fact]
+    public void ErrorNestedCallWrongArgType() => SemErr(@"
+        fn foo(a: int): int {
+            return a;
+        }
+
+        fn main() {
+            var x: int;
+            x = foo(foo('a'));
+        }
+    ");
+
+    [Fact]
+    public void ErrorCallWithTooManyArgs() => SemErr(@"
+        fn foo(a: int) {
+            return;
+        }
+
+        fn main() {
+            foo(1, 2);
+        }
+    ");
+
+    [Fact]
+    public void ErrorCallWithNoArgsWhenExpected() => SemErr(@"
+        fn foo(a: int) {
+            return;
+        }
+
+        fn main() {
+            foo();
+        }
+    ");
+
+    [Fact]
+    public void ErrorGlobalVarDuplicate() => SemErr(@"
+        var x: int;
+        var x: int;
+
+        fn main() {
+            x = 1;
+        }
+    ");
+
+    [Fact]
+    public void ErrorUseBeforeVarDeclared() => SemErr(@"
+        fn main() {
+            x = 5;
+            var x: int;
+        }
+    ");
+
+    [Fact]
+    public void ErrorReturnValueInVoidNestedFunction() => SemErr(@"
+        fn helper() {
+            return 1;
+        }
+
+        fn main() {
+            helper();
+        }
+    ");
+
+    [Fact]
+    public void ErrorCharArithmeticAssignedToInt() => SemErr(@"
+        fn main() {
+            var x: int;
+            x = 'a' * 2;
+        }
+    ");
+
+    [Fact]
+    public void ErrorCompareMismatchInWhile() => SemErr(@"
+        fn main() {
+            var x: int;
+            while (x < 'a') {
+                x = x + 1;
+            }
+        }
+    ");
+    
+    #endregion
 }

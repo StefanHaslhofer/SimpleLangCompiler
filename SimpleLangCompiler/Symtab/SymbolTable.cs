@@ -50,6 +50,7 @@ public class SymbolTable
         PutFunc = Insert(ObjKind.Func, "put", VoidType);
         OpenScope();
         Insert(ObjKind.Var, "e", CharType);
+        PutFunc.NPars++;
         PutFunc.Locals = CurScope!.Locals;
         CloseScope();
         
@@ -57,16 +58,18 @@ public class SymbolTable
         PutLnFunc = Insert(ObjKind.Func, "putLn", VoidType);
         
         // ord
-        OrdFunc = Insert(ObjKind.Func, "ord", IntType);
+        OrdFunc = Insert(ObjKind.Func, "ORD", IntType);
         OpenScope();
         Insert(ObjKind.Var, "ch", CharType);
+        OrdFunc.NPars++;
         OrdFunc.Locals = CurScope!.Locals;
         CloseScope();
         
         // chr
-        ChrFunc = Insert(ObjKind.Func, "chr", CharType);
+        ChrFunc = Insert(ObjKind.Func, "CHR", CharType);
         OpenScope();
         Insert(ObjKind.Var, "i", IntType);
+        ChrFunc.NPars++;
         ChrFunc.Locals = CurScope!.Locals;
         CloseScope();
     }
@@ -97,7 +100,7 @@ public class SymbolTable
     public Obj Insert(ObjKind kind, string name, Struct? type)
     {
         // semantic error if object already exists in scope
-        if (CurScope!.FindLocal(name))
+        if (CurScope.FindLocal(name))
         {
             _parser.SemErr($"{name} already exists in this scope.");
         }
@@ -107,6 +110,7 @@ public class SymbolTable
             // address offset is dependent on number of variables in scope
             AdrOffset = CurScope.NVars
         };
+        
         CurScope.Insert(obj);
         return obj;
     }
@@ -116,17 +120,25 @@ public class SymbolTable
     }
     
     /// <summary>
-    ///     Semantic error if operand types are not equal. 
+    ///     Semantic error if operand types are not compatible. 
     /// </summary>
-    public bool CheckTypeCompatibility(Operand? x, Operand? y)
+    public bool CheckOperandCompatibility(Operand? x, Operand? y)
     {
-        if (x?.Struct.Type != y?.Struct.Type)
+        if (!IsTypeCompatibleTo(x?.Struct ?? VoidType, y?.Struct ?? VoidType))
         {
             _parser.SemErr(Errors.DifferentTypes);
             return false;
         }
 
         return true;
+    }
+    
+    /// <summary>
+    ///     Return true if operand types are equal, false otherwise.
+    /// </summary>
+    public bool IsTypeCompatibleTo(Struct x, Struct y)
+    {
+        return x.Type == y.Type;
     }
     
     /// <summary>
@@ -147,6 +159,29 @@ public class SymbolTable
             
         }
         
+        return true;
+    }
+    
+    public bool CheckFunctionReturn(Operand x, Obj fnc)
+    {
+        if (x.Struct == VoidType && fnc.Type != VoidType)
+        {
+            _parser.SemErr(Errors.MissingReturnValue);
+            return false;
+        }
+
+        if (x.Struct != VoidType && fnc.Type == VoidType)
+        {
+            _parser.SemErr(Errors.UnexpectedReturnValue);
+            return false;
+        }
+        
+        if (!IsTypeCompatibleTo(x.Struct, fnc.Type))
+        {
+            _parser.SemErr(Errors.WrongReturnType);
+            return false;
+        }
+
         return true;
     }
 }
