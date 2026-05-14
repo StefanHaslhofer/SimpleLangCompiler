@@ -1,10 +1,10 @@
 ﻿namespace SimpleLangCompiler.FrontEnd;
 
 public class Errors {
-	public int count = 0;                                    // number of overall errors detected
-	public int synCount = 0;								 // number of syntax errors detected
-	public System.IO.TextWriter errorStream = Console.Out;   // error messages go to this stream
-	private string errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
+	public int Count = 0;                                    // number of overall errors detected
+	public int SynCount = 0;								 // number of syntax errors detected
+	public TextWriter ErrorStream = Console.Out;   // error messages go to this stream
+	private string ErrMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
 
     public const string IntegerNeeded = "operands must be of type int";
     public const string DifferentTypes = "operands must be of same type";
@@ -60,26 +60,26 @@ public class Errors {
 
 			default: s = "error " + n; break;
 		}
-		errorStream.WriteLine(errMsgFormat, line, col, s);
-		count++;
-		synCount++;
+		ErrorStream.WriteLine(ErrMsgFormat, line, col, s);
+		Count++;
+		SynCount++;
 	}
 
 	public virtual void SemErr (int line, int col, string s) {
-		errorStream.WriteLine(errMsgFormat, line, col, s);
-		count++;
+		ErrorStream.WriteLine(ErrMsgFormat, line, col, s);
+		Count++;
 	}
 	
 	public virtual void SemErr (string s) {
-		errorStream.WriteLine(s);
-		count++;
+		ErrorStream.WriteLine(s);
+		Count++;
 	}
 	
 	public virtual void Warning (int line, int col, string s) {
-		errorStream.WriteLine(errMsgFormat, line, col, s);
+		ErrorStream.WriteLine(ErrMsgFormat, line, col, s);
 	}
 	
 	public virtual void Warning(string s) {
-		errorStream.WriteLine(s);
+		ErrorStream.WriteLine(s);
 	}
 }

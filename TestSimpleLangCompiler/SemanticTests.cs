@@ -14,18 +14,18 @@ public class SemanticTests(ITestOutputHelper output)
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
-        parser.Errors.errorStream = sw;
+        parser.Errors.ErrorStream = sw;
 
         parser.Parse();
 
         output.WriteLine(sw.ToString());
 
-        if (parser.Errors.synCount > 0)
+        if (parser.Errors.SynCount > 0)
         {
             throw new Exception("Syntax error");
         }
 
-        Assert.Equal(0, parser.Errors.count);
+        Assert.Equal(0, parser.Errors.Count);
     }
 
     private void SemErr(string input)
@@ -33,19 +33,19 @@ public class SemanticTests(ITestOutputHelper output)
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
         var parser = new Parser(new Scanner(stream));
         var sw = new StringWriter();
-        parser.Errors.errorStream = sw;
+        parser.Errors.ErrorStream = sw;
 
         parser.Parse();
 
         output.WriteLine(sw.ToString());
 
-        if (parser.Errors.synCount > 0)
+        if (parser.Errors.SynCount > 0)
         {
             throw new Exception("Syntax error");
         }
 
         // TODO also check the content of the error message
-        Assert.True(parser.Errors.count > 0);
+        Assert.True(parser.Errors.Count > 0);
     }
 
     #region ValidPrograms
