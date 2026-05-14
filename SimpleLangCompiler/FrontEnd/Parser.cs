@@ -307,10 +307,11 @@ public class Parser
     {
         Obj fnc = SymTab.Find(t.val);
         Expect(TokenKind.LParen);
+        int expr = 0;
         if (StartOf(2))
         {
             Operand x = Expression();
-            int expr = 1;
+            expr++;
             // first n (= obj.NPars) locals are parameters
             LinkedListNode<Obj>? arg = fnc.Locals.First;
             if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type)) 
@@ -328,10 +329,10 @@ public class Parser
             }
             
             // number of arguments must match the number of function parameters
-            if (fnc != SymTab.NoObj && expr != fnc.NPars)
-            {
-                SemErr(Errors.WrongArgumentCount);
-            }
+        }
+        if (fnc != SymTab.NoObj && expr != fnc.NPars)
+        {
+            SemErr(Errors.WrongArgumentCount);
         }
         Expect(TokenKind.RParen);
     }

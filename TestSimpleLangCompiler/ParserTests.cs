@@ -513,5 +513,13 @@ public class ParserTests(ITestOutputHelper output)
         var x;
     ");
     
+    [Fact]
+    public void TestLateFuncDeclaration() => AnalyzeErr(@"
+        fn main() {
+            x = 5;
+            var x: int;
+        }
+    ");
+    
     #endregion
 }

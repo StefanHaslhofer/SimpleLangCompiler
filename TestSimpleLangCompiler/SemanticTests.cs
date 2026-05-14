@@ -529,14 +529,6 @@ public class SemanticTests(ITestOutputHelper output)
     ");
 
     [Fact]
-    public void ErrorUseBeforeVarDeclared() => SemErr(@"
-        fn main() {
-            x = 5;
-            var x: int;
-        }
-    ");
-
-    [Fact]
     public void ErrorReturnValueInVoidNestedFunction() => SemErr(@"
         fn helper() {
             return 1;
