@@ -20,33 +20,24 @@ public class Operand(Struct s, OperandKind kind)
     public readonly Struct Struct = s;
     public OperandKind Kind = kind;
 
-    /// <summary>
-    ///     Var: addressing mode of variable
-    /// </summary>
+    // Var: name of the variable
+    public string? Name;
+    
+    // Var: addressing mode of variable
     public AddressingMode? AddrMode;
-
-    /// <summary>
-    ///     Val: constant value
-    /// </summary>
+    
+    // Val: constant value
     public int? Val;
-
-    /// <summary>
-    ///     Var-Reg, Var-RegRel: register
-    /// </summary>
+    
+    // Var-Reg, Var-RegRel: register
     public int? Reg;
-
-    /// <summary>
-    ///     Var-Abs, Func: address; Var-RegRel: offset
-    /// </summary>
+    
+    // Var-Abs, Func: address; Var-RegRel: offset
     public int? AdrOffset;
-
-    /// <summary>
-    ///     Var-Abs, Var-RegRel: index register if not none
-    /// </summary>
+    
+    // Var-Abs, Var-RegRel: index register if not none
     public int? Idx;
-
-    /// <summary>
-    ///     Var-Abs, Var-RegRel: scale factor of index register
-    /// </summary>
+    
+    // Var-Abs, Var-RegRel: scale factor of index register
     public int? Scale;
 }

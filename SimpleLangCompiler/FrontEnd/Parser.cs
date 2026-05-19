@@ -12,7 +12,7 @@ public class Parser
     public readonly Scanner Scanner;
     public readonly Errors Errors;
     public readonly SymbolTable SymTab;
-    public readonly CodeGenerator CodeGenerator;
+    public readonly AsmGen AsmGen;
 
     private Token T;   // last recognized token
     private Token La;  // lookahead token
@@ -23,7 +23,7 @@ public class Parser
         Scanner = scanner;
         SymTab = new SymbolTable(this);
         Errors = new Errors();
-        CodeGenerator = new CodeGenerator();
+        AsmGen = new AsmGen(new RegisterAllocator());
     }
 
     void SynErr(int n)
@@ -397,7 +397,7 @@ public class Parser
             Get();
             Obj o = SymTab.Find(T.val);
             
-            op = CodeGenerator.VarOperand(o);
+            op = AsmGen.VarOperand(o);
             if (La.kind == TokenKind.LParen)
             {
                 if (o.Kind != ObjKind.Func)
@@ -405,7 +405,7 @@ public class Parser
                     SynErr(37);
                 }
                 // operand is a function if parenthesis opens after identifier
-                op = CodeGenerator.FuncOperand(o);
+                op = AsmGen.FuncOperand(o);
                 ActParameters();
             } else if (o.Kind == ObjKind.Func)
             {
