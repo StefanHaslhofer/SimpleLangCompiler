@@ -7,11 +7,17 @@ public enum ObjKind
     Type
 }
 
-public class Obj(ObjKind kind, string name, Struct type)
+public class Obj(ObjKind kind, string name, Struct type, int level)
 {
     public string Name = name;
     public ObjKind Kind = kind;
     public Struct Type = type;
+
+    /// <summary>
+    ///     Scope level: 0 = global, 1 = local
+    ///     Needed to verify if an obj is defined locally or globally.
+    /// </summary>
+    public int Level = level;
     
     /// <summary>
     ///     Only for Var, Fnc: address offset of the element.

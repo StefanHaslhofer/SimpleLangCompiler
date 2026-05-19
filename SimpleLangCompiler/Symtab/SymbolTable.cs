@@ -22,7 +22,7 @@ public class SymbolTable
     /// <summary>
     ///     Currently opened scope.
     /// </summary>
-    public Scope CurScope;
+    public Scope? CurScope;
 
     /// <summary>
     ///     Sets the scope of the function currently being analyzed,
@@ -91,7 +91,7 @@ public class SymbolTable
     
     public void OpenScope()
     {
-        CurScope = new Scope(CurScope);
+        CurScope = new Scope(CurScope != null ? CurScope.Level + 1 : 0, CurScope);
     }
     
     /// <summary>
@@ -100,23 +100,19 @@ public class SymbolTable
     public Obj Insert(ObjKind kind, string name, Struct? type)
     {
         // semantic error if object already exists in scope
-        if (CurScope.FindLocal(name))
+        if (CurScope!.FindLocal(name))
         {
             _parser.SemErr($"{name} already exists in this scope.");
         }
-        
-        var obj = new Obj(kind, name, type)
-        {
-            // address offset is dependent on number of variables in scope
-            AdrOffset = CurScope.NVars
-        };
+
+        var obj = new Obj(kind, name, type, CurScope.Level);
         
         CurScope.Insert(obj);
         return obj;
     }
     
     public void CloseScope(){
-        CurScope = CurScope.Outer!;
+        CurScope = CurScope!.Outer!;
     }
     
     /// <summary>

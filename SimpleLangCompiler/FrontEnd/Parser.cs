@@ -1,3 +1,4 @@
+using SimpleLangCompiler.Codegen;
 using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.FrontEnd;
@@ -8,31 +9,33 @@ public class Parser
     const bool _x = false;
     const int MinErrDist = 2;
 
-    public Scanner Scanner;
-    public Errors Errors;
+    public readonly Scanner Scanner;
+    public readonly Errors Errors;
     public readonly SymbolTable SymTab;
+    public readonly CodeGenerator CodeGenerator;
 
-    public Token T;   // last recognized token
-    public Token La;  // lookahead token
-    int errDist = MinErrDist;
+    private Token T;   // last recognized token
+    private Token La;  // lookahead token
+    private int _errDist = MinErrDist;
 
     public Parser(Scanner scanner)
     {
         Scanner = scanner;
         SymTab = new SymbolTable(this);
         Errors = new Errors();
+        CodeGenerator = new CodeGenerator();
     }
 
     void SynErr(int n)
     {
-        if (errDist >= MinErrDist) Errors.SynErr(La.line, La.col, n);
-        errDist = 0;
+        if (_errDist >= MinErrDist) Errors.SynErr(La.line, La.col, n);
+        _errDist = 0;
     }
 
     public void SemErr(string msg)
     {
-        if (errDist >= MinErrDist) Errors.SemErr(T.line, T.col, msg);
-        errDist = 0;
+        if (_errDist >= MinErrDist) Errors.SemErr(T.line, T.col, msg);
+        _errDist = 0;
     }
 
     void Get()
@@ -41,7 +44,7 @@ public class Parser
         {
             T = La;
             La = Scanner.Scan();
-            if (La.kind <= TokenKind.NoSym) { ++errDist; break; }
+            if (La.kind <= TokenKind.NoSym) { ++_errDist; break; }
             La = T;
         }
     }
@@ -212,6 +215,7 @@ public class Parser
             }
             else if (La.kind == TokenKind.LParen)
             {
+                // TODO store params in registers a0 to a7 (function params)
                 if (o.Kind != ObjKind.Func)
                 {
                     SynErr(37);
@@ -288,6 +292,7 @@ public class Parser
 
     Operand Expression()
     {
+        // TODO allocate temporary registers in here somewhere to store expression intermediates 
         if (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
@@ -391,7 +396,8 @@ public class Parser
         {
             Get();
             Obj o = SymTab.Find(T.val);
-            op = new Operand(o.Type, OperandKind.Var);
+            
+            op = CodeGenerator.VarOperand(o);
             if (La.kind == TokenKind.LParen)
             {
                 if (o.Kind != ObjKind.Func)
@@ -399,7 +405,7 @@ public class Parser
                     SynErr(37);
                 }
                 // operand is a function if parenthesis opens after identifier
-                op.Kind = OperandKind.Func;
+                op = CodeGenerator.FuncOperand(o);
                 ActParameters();
             } else if (o.Kind == ObjKind.Func)
             {

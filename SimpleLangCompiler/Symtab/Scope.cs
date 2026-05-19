@@ -3,7 +3,7 @@
 /// <summary>
 ///     Symbol table scopes.
 /// </summary>
-public class Scope(Scope? outer)
+public class Scope(int level, Scope? outer)
 {
     /// <summary>
     ///     Reference to the outer scope.
@@ -20,9 +20,16 @@ public class Scope(Scope? outer)
     /// </summary>
     public int NVars { get; set; } = 0;
 
+    /// <summary>
+    ///     Scope level: 0 = global, 1 = local
+    ///     Needed to verify if an obj is defined locally or globally.
+    /// </summary>
+    public int Level = level;
+
     public void Insert(Obj obj)
     {
-        obj.AdrOffset = NVars++;
+        // address offset is dependent on number of variables in scope
+        obj.AdrOffset = 4 * NVars++;
         Locals.AddLast(obj);
     }
 
