@@ -116,7 +116,9 @@ public class Parser
         var type = Type();
         Expect(TokenKind.Semicolon);
 
-        SymTab.Insert(kind, name, type);
+        var obj = SymTab.Insert(kind, name, type);
+        // TODO
+        // AsmGen.GenVarDecl(obj);
     }
 
     void FnDecl()
@@ -126,11 +128,12 @@ public class Parser
         Expect(TokenKind.Ident);
         var name = T.val;
         var obj = SymTab.Insert(kind, name, null);
-
+        
         SymTab.OpenScope();
         SymTab.CurFnc = obj;
         var returnType = Parameters();
-
+        // TODO AsmGen.GenFuncPrologue(obj);
+        
         Expect(TokenKind.LBrace);
         while (La.kind == TokenKind.Var)
         {
@@ -141,6 +144,7 @@ public class Parser
         obj.Type = returnType;
         StatSeq();
         
+        // TODO AsmGen.GenFuncEpilogue(o);
         SymTab.CloseScope();
         SymTab.CurFnc = null;
         Expect(TokenKind.RBrace);
@@ -216,6 +220,7 @@ public class Parser
             else if (La.kind == TokenKind.LParen)
             {
                 // TODO store params in registers a0 to a7 (function params)
+                //  or push directly to the stack to support >8 params
                 if (o.Kind != ObjKind.Func)
                 {
                     SynErr(37);
@@ -302,7 +307,11 @@ public class Parser
         {
             Addop();
             Operand y = Term();
-            SymTab.CheckOperandCompatibility(x, y);
+            if (SymTab.CheckOperandCompatibility(x, y))
+            {
+                // TODO
+                // AsmGen.GenOp(op, x, y);
+            }
         }
 
         return x;
@@ -384,6 +393,9 @@ public class Parser
             {
                 SemErr(Errors.IntegerNeeded);
             }
+            
+            // TODO
+            // AsmGen.GenOp(op, x, y);
         }
         
         return x;
@@ -398,28 +410,30 @@ public class Parser
             Obj o = SymTab.Find(T.val);
             
             op = AsmGen.VarOperand(o);
+            // operand is a function if parenthesis opens after identifier
             if (La.kind == TokenKind.LParen)
             {
                 if (o.Kind != ObjKind.Func)
                 {
                     SynErr(37);
                 }
-                // operand is a function if parenthesis opens after identifier
                 op = AsmGen.FuncOperand(o);
                 ActParameters();
             } else if (o.Kind == ObjKind.Func)
             {
+                // syntax error if object is a function but is not called with parenthesis
                 SynErr(10);
             }
         }
         else if (La.kind == TokenKind.Number)
         {
             Get();
-            op = new Operand(SymTab.IntType, OperandKind.Val);
+            op = AsmGen.ValOperand(SymTab.IntType, int.Parse(T.val));
         }
         else if (La.kind == TokenKind.CharCon)
         {
             Get();
+            // TODO check if char should also be ValOperand
             op = new Operand(SymTab.CharType, OperandKind.Val);
         }
         else if (La.kind == TokenKind.LParen)

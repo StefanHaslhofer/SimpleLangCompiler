@@ -1,4 +1,5 @@
-﻿using SimpleLangCompiler.Symtab;
+﻿using System.Reflection.Emit;
+using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.Codegen;
 
@@ -39,12 +40,25 @@ public class AsmGen(RegisterAllocator regAlloc)
             // global variable
             x.AddrMode = AddressingMode.Abs;
             x.AdrOffset = o.AdrOffset;
+            x.Label = o.Name;
         }
         else
         {
             // local variable
+            // TODO how to address params and locals? Both are in the same local scope,
+            //  maybe all should be on the stack and adressed via RegRel
+            x.AddrMode = AddressingMode.Reg;
+            x.AdrOffset = o.AdrOffset;
         }
 
+        return x;
+    }
+
+    public Operand ValOperand(Struct type, int val)
+    {
+        Operand x = new Operand(type, OperandKind.Val);
+        x.Val = val;
+        
         return x;
     }
 

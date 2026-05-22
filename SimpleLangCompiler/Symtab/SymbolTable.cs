@@ -39,6 +39,7 @@ public class SymbolTable
     {
         _parser = parser;
         
+        // TODO this should be done in constructor of Parser
         OpenScope();
         Insert(ObjKind.Type, "int", IntType);
         Insert(ObjKind.Type, "char", CharType);
