@@ -93,6 +93,8 @@ public class Parser
         {
             Declaration();
         }
+        
+        AsmGen.Print();
     }
 
     void Declaration()
@@ -117,8 +119,7 @@ public class Parser
         Expect(TokenKind.Semicolon);
 
         var obj = SymTab.Insert(kind, name, type);
-        // TODO
-        // AsmGen.GenVarDecl(obj);
+        AsmGen.GenVarDecl(obj);
     }
 
     void FnDecl()
@@ -132,19 +133,19 @@ public class Parser
         SymTab.OpenScope();
         SymTab.CurFnc = obj;
         var returnType = Parameters();
-        // TODO AsmGen.GenFuncPrologue(obj);
         
         Expect(TokenKind.LBrace);
         while (La.kind == TokenKind.Var)
         {
             VarDecl();
         }
-
-        obj.Locals = SymTab.CurScope.Locals;
+        obj.Locals = SymTab.CurScope!.Locals;
         obj.Type = returnType;
-        StatSeq();
         
-        // TODO AsmGen.GenFuncEpilogue(o);
+        AsmGen.GenFuncPrologue(obj);
+        StatSeq();
+        AsmGen.GenFuncEpilogue(obj);
+        
         SymTab.CloseScope();
         SymTab.CurFnc = null;
         Expect(TokenKind.RBrace);
