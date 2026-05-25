@@ -88,12 +88,15 @@ public class Parser
 
     void SimpleLang()
     {
+        AsmGen.GenTextPrologue();
+        
         Declaration();
         while (La.kind == TokenKind.Var || La.kind == TokenKind.Fn)
         {
             Declaration();
         }
-        
+
+        AsmGen.GenTextEpilogue();
         AsmGen.Print();
     }
 
@@ -278,7 +281,11 @@ public class Parser
                 x = Expression();
             }
 
-            SymTab.CheckFunctionReturn(x, SymTab.CurFnc!);
+            if (SymTab.CheckFunctionReturn(x, SymTab.CurFnc!))
+            {
+                // TODO
+                //  AsmGen.GenReturn(x, SymTab.CurFnc!);
+            }
             
             Expect(TokenKind.Semicolon);
         }

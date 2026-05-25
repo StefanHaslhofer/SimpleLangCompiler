@@ -15,13 +15,16 @@ public class AsmGen(RegisterAllocator regAlloc)
     // Holds all global char declarations.
     public readonly List<string> BssCharSegment = [];
 
-    // Holds executable code.
-    public readonly List<string> TextSegment = [];
+    // Start of the text segment.
+    public readonly List<string> TextSegmentPrologue = [];
 
     // Maps a function name to its list of assembler instructions.
     // Each entry in the list represents one instruction.
     public readonly Dictionary<string, List<string>> Functions = [];
 
+    // End of the text segment (calls main).
+    public readonly List<string> TextSegmentEpilogue = [];
+    
     private const int DWordSize = 8;
 
     // TODO this method should write to a file or at least should produce output that can be automatically linked
@@ -42,12 +45,22 @@ public class AsmGen(RegisterAllocator regAlloc)
             Console.WriteLine(s);
         }
 
+        foreach (var s in TextSegmentPrologue)
+        {
+            Console.WriteLine(s);
+        }
+        
         foreach (var f in Functions)
         {
             foreach (var s in f.Value)
             {
                 Console.WriteLine(s);
             }
+        }
+        
+        foreach (var s in TextSegmentEpilogue)
+        {
+            Console.WriteLine(s);
         }
     }
 
@@ -106,7 +119,7 @@ public class AsmGen(RegisterAllocator regAlloc)
         }
         else
         {
-            var asm = func != null ? Functions[func.Name] : TextSegment;
+            var asm = Functions[func!.Name];
             Load(x, asm);
             Load(y, asm);
 
@@ -201,7 +214,9 @@ public class AsmGen(RegisterAllocator regAlloc)
     public void GenFuncEpilogue(Obj obj)
     {
         var funcAsm = Functions[obj.Name];
-
+        
+        // label so early returns can jump here
+        funcAsm.Add($"{obj.Name}_ret:");
         // Calculate space for locals
         var stackFrameSize = CalculateStackFrameSize(obj.Locals.Count);
         // restore return address
@@ -211,6 +226,19 @@ public class AsmGen(RegisterAllocator regAlloc)
         // deallocate stack frame
         funcAsm.Add($"\taddi sp, sp, {stackFrameSize}");
         funcAsm.Add("\tret");
+    }
+    
+    public void GenTextPrologue()
+    {
+        TextSegmentPrologue.Add(".text");
+        TextSegmentPrologue.Add("j skip");
+    }
+    
+    public void GenTextEpilogue()
+    {
+        // call main
+        TextSegmentEpilogue.Add("skip:");
+        TextSegmentEpilogue.Add("\tcall main");
     }
 
     // Generate assembler code for variable declaration.
@@ -247,5 +275,10 @@ public class AsmGen(RegisterAllocator regAlloc)
         var space = numOfLocals * DWordSize + 16;
         // allocate stack frame (needs to be 16 byte aligned according to ABI spec)
         return (int)(Math.Ceiling(space / 16.0) * 16);
+    }
+
+    public void GenCallMain()
+    {
+        throw new NotImplementedException();
     }
 }

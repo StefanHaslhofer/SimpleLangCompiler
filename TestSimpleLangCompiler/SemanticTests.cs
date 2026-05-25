@@ -117,6 +117,20 @@ public class SemanticTests(ITestOutputHelper output)
             }
         }
     ");
+    
+    [Fact]
+    public void ValidMultipleReturns() => SemOk(@"
+        fn foo(a: int, b: int): int {
+            if (a < b) {
+                return a;
+            }
+            return b;
+        }
+ 
+        fn main() {
+            foo(1, 2);
+        }
+    ");
 
     [Fact]
     public void ValidFunctionCallTypes() => SemOk(@"
