@@ -29,7 +29,7 @@ public class Scope(int level, Scope? outer)
     public void Insert(Obj obj)
     {
         // address offset is dependent on number of variables in scope
-        obj.AdrOffset = 4 * NVars++;
+        obj.AdrOffset = NVars++;
         Locals.AddLast(obj);
     }
 

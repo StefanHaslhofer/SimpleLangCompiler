@@ -1,4 +1,5 @@
 ﻿using System.Reflection.Emit;
+using SimpleLangCompiler.FrontEnd;
 using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.Codegen;
@@ -13,7 +14,7 @@ public class AsmGen(RegisterAllocator regAlloc)
 
     // Holds all global char declarations.
     public readonly List<string> BssCharSegment = [];
-    
+
     // Holds executable code.
     public readonly List<string> TextSegment = [];
 
@@ -21,11 +22,11 @@ public class AsmGen(RegisterAllocator regAlloc)
     // Each entry in the list represents one instruction.
     public readonly Dictionary<string, List<string>> Functions = [];
 
-    private readonly RegisterAllocator _regAlloc = regAlloc;
+    private const int DWordSize = 8;
 
+    // TODO this method should write to a file or at least should produce output that can be automatically linked
     public void Print()
     {
-        // TODO this method should write to a file or at least should produce output that can be automatically linked
         foreach (var s in BssSegment)
         {
             Console.WriteLine(s);
@@ -53,20 +54,17 @@ public class AsmGen(RegisterAllocator regAlloc)
     public Operand VarOperand(Obj o)
     {
         Operand x = new Operand(o.Type, OperandKind.Var);
-        if (o.Level == 0)
+        if (o.Level == 0) // global variable
         {
-            // global variable
             x.AddrMode = AddressingMode.Abs;
             x.AdrOffset = o.AdrOffset;
             x.Label = o.Name;
         }
-        else
+        else // function parameter and local variables
         {
-            // local variable
-            // TODO how to address params and locals? Both are in the same local scope,
-            //  maybe all should be on the stack and adressed via RegRel
-            x.AddrMode = AddressingMode.Reg;
+            x.AddrMode = AddressingMode.RegRel;
             x.AdrOffset = o.AdrOffset;
+            x.Reg = Register.FP;
         }
 
         return x;
@@ -83,9 +81,92 @@ public class AsmGen(RegisterAllocator regAlloc)
     public Operand FuncOperand(Obj o)
     {
         Operand x = new Operand(o.Type, OperandKind.Func);
-
+        x.AdrOffset = o.AdrOffset;
 
         return x;
+    }
+
+    // Generate assembler code for arithmetic operations.
+    public void GenArithmetic(TokenKind op, Operand x, Operand y, Obj? func)
+    {
+        // directly calculate result if both operands are fixed values
+        if (x.Kind == OperandKind.Val && y.Kind == OperandKind.Val)
+        {
+            switch (op)
+            {
+                case TokenKind.Plus:
+                    x.Val += y.Val; break;
+                case TokenKind.Minus:
+                    x.Val -= y.Val; break;
+                case TokenKind.Star:
+                    x.Val *= y.Val; break;
+                case TokenKind.Slash:
+                    x.Val /= y.Val; break;
+            }
+        }
+        else
+        {
+            var asm = func != null ? Functions[func.Name] : TextSegment;
+            Load(x, asm);
+            Load(y, asm);
+
+            // note: register allocation is not optimal
+            var rd = regAlloc.Alloc();
+            switch (op)
+            {
+                case TokenKind.Plus:
+                    asm.Add($"\tadd {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    break;
+                case TokenKind.Minus:
+                    asm.Add($"\tsub {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    break;
+                case TokenKind.Star:
+                    asm.Add($"\tmul {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    break;
+                case TokenKind.Slash:
+                    asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    break;
+            }
+
+            regAlloc.Free(x.Reg);
+            regAlloc.Free(y.Reg);
+            x.Reg = rd;
+        }
+    }
+
+    // Load operand value into register.
+    private void Load(Operand x, List<string> asm)
+    {
+        var rd = regAlloc.Alloc();
+
+        if (x.Kind == OperandKind.Val)
+        {
+            // load the immediate value into the register for simplicity
+            asm.Add($"\tli {rd.ToLabel()}, {x.Val}");
+        }
+        else
+        {
+            var loadInstr = x.Struct.Type == StructKind.Int ? "ld" : "lb";
+            switch (x.AddrMode)
+            {
+                case AddressingMode.Abs:
+                    // load symbol address into rd
+                    asm.Add($"\tla {rd.ToLabel()}, {x.Label}");
+                    // load word from address referenced in rd to get value
+                    asm.Add($"\t{loadInstr} {rd.ToLabel()}, 0({rd.ToLabel()})");
+                    break;
+                case AddressingMode.RegRel:
+                    asm.Add($"\t{loadInstr} {rd.ToLabel()}, {-16 - DWordSize * (x.AdrOffset + 1)}(fp)");
+                    break;
+                case AddressingMode.Reg:
+                    // do nothing if operand is already in register
+                    return;
+            }
+        }
+
+        x.Reg = rd;
+        x.AddrMode = AddressingMode.Reg;
+        x.AdrOffset = 0;
     }
 
     public void GenFuncPrologue(Obj obj)
@@ -95,16 +176,22 @@ public class AsmGen(RegisterAllocator regAlloc)
         var funcAsm = Functions[obj.Name];
 
         var stackFrameSize = CalculateStackFrameSize(obj.Locals.Count);
+        // allocate memory for all locals
         funcAsm.Add($"\taddi sp, sp, -{stackFrameSize}");
         // save return address
-        funcAsm.Add($"\tsw ra, {stackFrameSize - 4}(sp)");
+        funcAsm.Add($"\tsd ra, {stackFrameSize - 8}(sp)");
         // save caller frame pointer
-        funcAsm.Add($"\tsw fp, {stackFrameSize - 8}(sp)");
-        
-        // push function parameters onto stack (only first n locals are params stored in registers a0 to a7)
-        for (int i = 0; i < obj.NPars; i++)
+        funcAsm.Add($"\tsd fp, {stackFrameSize - 16}(sp)");
+
+        // Push function parameters onto stack (only first n locals are params stored in registers a0 to a7).
+        // This is not optimal because registers a0 to a7 could be used directly,
+        // but I want to keep it as simple as possible.
+        foreach (var (i, param) in obj.Locals.Take(obj.NPars).Index())
         {
-            funcAsm.Add($"\tsw a{i}, {stackFrameSize - 8 - i * 4}(sp)");
+            // store double word or byte depending on parameter type
+            var storeInstr = param.Type.Type == StructKind.Int ? "sd" : "sb";
+            funcAsm.Add($"\t{storeInstr} a{i}, {stackFrameSize - 16 - (i + 1) * DWordSize}(sp)");
+            // TODO free register a{i-1} --> maybe not here
         }
 
         // set frame pointer (new fp = old sp)
@@ -152,12 +239,12 @@ public class AsmGen(RegisterAllocator regAlloc)
             }
         }
     }
-    
+
     // Stack frame size = (num_locals × 8) + 8, aligned to 16 bytes.
     // Note: all locals treated as 8 bytes wide for simplicity.
     private int CalculateStackFrameSize(int numOfLocals)
     {
-        var space = numOfLocals * 8 + 8;
+        var space = numOfLocals * DWordSize + 16;
         // allocate stack frame (needs to be 16 byte aligned according to ABI spec)
         return (int)(Math.Ceiling(space / 16.0) * 16);
     }

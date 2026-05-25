@@ -46,6 +46,12 @@ public enum Register
     T6 = 31
 }
 
+public static class RegisterExtensions
+{
+    public static string ToLabel(this Register reg) =>
+        reg.ToString().ToLowerInvariant();
+}
+
 public class RegisterAllocator
 {
     private readonly Stack<Register> _availableTempRegs = new([
@@ -67,9 +73,8 @@ public class RegisterAllocator
         reg is Register.A0 or Register.A1 or Register.A2 or Register.A3
             or Register.A4 or Register.A5 or Register.A6 or Register.A7;
 
-    /// <summary>
-    ///     Allocates a register. Returns false if none are available.
-    /// </summary>
+
+    // Allocates a register. Returns false if none are available.
     public bool TryAlloc(bool isParam, out Register reg)
     {
         var pool = isParam ? _availableParamRegs : _availableTempRegs;
@@ -86,7 +91,7 @@ public class RegisterAllocator
         return true;
     }
 
-    public Register Alloc(bool isParam)
+    public Register Alloc(bool isParam = false)
     {
         if (!TryAlloc(isParam, out var reg))
         {
@@ -97,9 +102,7 @@ public class RegisterAllocator
         return reg;
     }
 
-    /// <summary>
-    ///     Deallocate a register.
-    /// </summary>
+    // Deallocate a register.
     public void Free(Register reg)
     {
         if (!_allocated.Remove(reg))
@@ -119,9 +122,8 @@ public class RegisterAllocator
         }
     }
 
-    /// <summary>
-    ///     Deallocate all registers.
-    /// </summary>
+
+    // Deallocate all registers.
     public void FreeAll()
     {
         foreach (var reg in _allocated)
@@ -130,9 +132,8 @@ public class RegisterAllocator
         }
     }
 
-    /// <summary>
-    ///     Returns true if a register is allocated, false otherwise.
-    /// </summary>
+
+    // Returns true if a register is allocated, false otherwise.
     public bool IsAllocated(Register r)
     {
         return _allocated.Contains(r);

@@ -187,7 +187,8 @@ public class Parser
         var name = T.val;
         Expect(TokenKind.Colon);
         var type = Type();
-        SymTab.Insert(kind, name, type);
+        var obj = SymTab.Insert(kind, name, type);
+        obj.IsParam = true;
         SymTab.CurFnc!.NPars++;
     }
 
@@ -298,20 +299,22 @@ public class Parser
 
     Operand Expression()
     {
+        TokenKind op;
         // TODO allocate temporary registers in here somewhere to store expression intermediates 
         if (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
+            op = T.kind;
         }
         Operand x = Term();
         while (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
+            op = T.kind;
             Operand y = Term();
             if (SymTab.CheckOperandCompatibility(x, y))
             {
-                // TODO
-                // AsmGen.GenOp(op, x, y);
+                AsmGen.GenArithmetic(op, x, y, SymTab.CurFnc);
             }
         }
 
@@ -325,6 +328,7 @@ public class Parser
         int expr = 0;
         if (StartOf(2))
         {
+            // TODO operands(=params) need to be pushed to registers a0...a7
             Operand x = Expression();
             expr++;
             // first n (= obj.NPars) locals are parameters
@@ -342,9 +346,8 @@ public class Parser
                 if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type)) 
                     SemErr(Errors.WrongArgumentType);
             }
-            
-            // number of arguments must match the number of function parameters
         }
+        // number of arguments must match the number of function parameters
         if (fnc != SymTab.NoObj && expr != fnc.NPars)
         {
             SemErr(Errors.WrongArgumentCount);
@@ -395,8 +398,7 @@ public class Parser
                 SemErr(Errors.IntegerNeeded);
             }
             
-            // TODO
-            // AsmGen.GenOp(op, x, y);
+            // TODO AsmGen.GenOp(op, x, y);
         }
         
         return x;

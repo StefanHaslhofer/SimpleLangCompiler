@@ -1,4 +1,6 @@
-﻿namespace SimpleLangCompiler.Symtab;
+﻿using SimpleLangCompiler.Codegen;
+
+namespace SimpleLangCompiler.Symtab;
 
 public enum OperandKind
 {
@@ -27,7 +29,7 @@ public class Operand(Struct s, OperandKind kind)
     public int? Val;
     
     // Var-Reg, Var-RegRel: register
-    public int? Reg;
+    public Register Reg;
     
     // Var-Abs, Func: address; Var-RegRel: offset
     public int? AdrOffset;
