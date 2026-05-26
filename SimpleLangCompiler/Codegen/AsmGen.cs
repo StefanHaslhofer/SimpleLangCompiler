@@ -267,6 +267,20 @@ public class AsmGen(RegisterAllocator regAlloc)
             }
         }
     }
+    
+    public void GenReturn(Operand x, Obj func)
+    {
+        var asm = Functions[func.Name];
+
+        if (x.Kind != OperandKind.None)
+        {
+            // move result into return register
+            asm.Add($"\tmv a0, {x.Reg.ToLabel()}");
+            regAlloc.Free(x.Reg);    
+        }
+        
+        asm.Add($"\tj {func.Name}_ret");
+    }
 
     // Stack frame size = (num_locals × 8) + 8, aligned to 16 bytes.
     // Note: all locals treated as 8 bytes wide for simplicity.
@@ -275,10 +289,5 @@ public class AsmGen(RegisterAllocator regAlloc)
         var space = numOfLocals * DWordSize + 16;
         // allocate stack frame (needs to be 16 byte aligned according to ABI spec)
         return (int)(Math.Ceiling(space / 16.0) * 16);
-    }
-
-    public void GenCallMain()
-    {
-        throw new NotImplementedException();
     }
 }

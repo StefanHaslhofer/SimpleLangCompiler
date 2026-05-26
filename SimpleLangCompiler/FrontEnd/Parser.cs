@@ -211,15 +211,16 @@ public class Parser
         {
             Get();
             Obj o = SymTab.Find(T.val);
-            x = new Operand(o.Type!, GetOpKind(T.val));
+            x = new Operand(o.Type, GetOpKind(T.val));
             
             if (La.kind == TokenKind.Assign)
             {
                 Get();
-                Operand? y = Expression();
-                if (SymTab.CheckOperandCompatibility(x, y))
+                Operand y = Expression();
+                if (SymTab.CheckOperandCompatibility(x, y) && SymTab.CheckAssignability(x, y))
                 {
-                    SymTab.CheckAssignability(x, y);
+                    // TODO
+                    //  AsmGen.GenAssign(x, y, SymTab.CurFnc);
                 }
             }
             else if (La.kind == TokenKind.LParen)
@@ -283,8 +284,7 @@ public class Parser
 
             if (SymTab.CheckFunctionReturn(x, SymTab.CurFnc!))
             {
-                // TODO
-                //  AsmGen.GenReturn(x, SymTab.CurFnc!);
+                AsmGen.GenReturn(x, SymTab.CurFnc!);
             }
             
             Expect(TokenKind.Semicolon);
@@ -307,7 +307,6 @@ public class Parser
     Operand Expression()
     {
         TokenKind op;
-        // TODO allocate temporary registers in here somewhere to store expression intermediates 
         if (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
@@ -364,11 +363,15 @@ public class Parser
 
     void Condition()
     {
-        Operand? x = Expression();
+        Operand x = Expression();
         Relop();
-        Operand? y = Expression();
+        Operand y = Expression();
 
-        SymTab.CheckOperandCompatibility(x, y);
+        if (SymTab.CheckOperandCompatibility(x, y))
+        {
+            // TODO check relop (I don't know if this needs to be done here or outside)
+            //  AsmGen.GenRelop(x, y, SymTab.CurFnc);
+        }
     }
 
     void Relop()
@@ -398,14 +401,15 @@ public class Parser
         while (La.kind == TokenKind.Star || La.kind == TokenKind.Slash || La.kind == TokenKind.Percent)
         {
             Mulop();
+            var op = T.kind;
             Operand y = Factor();
 
-            if (x?.Struct.Type != StructKind.Int || y?.Struct.Type != StructKind.Int)
+            if (x.Struct.Type != StructKind.Int || y.Struct.Type != StructKind.Int)
             {
                 SemErr(Errors.IntegerNeeded);
             }
             
-            // TODO AsmGen.GenOp(op, x, y);
+            AsmGen.GenArithmetic(op, x, y, SymTab.CurFnc);
         }
         
         return x;
