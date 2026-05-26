@@ -219,8 +219,7 @@ public class Parser
                 Operand y = Expression();
                 if (SymTab.CheckOperandCompatibility(x, y) && SymTab.CheckAssignability(x, y))
                 {
-                    // TODO
-                    //  AsmGen.GenAssign(x, y, SymTab.CurFnc);
+                    AsmGen.GenAssign(x, y, SymTab.CurFnc!);
                 }
             }
             else if (La.kind == TokenKind.LParen)

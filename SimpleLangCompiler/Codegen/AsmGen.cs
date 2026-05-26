@@ -98,6 +98,23 @@ public class AsmGen(RegisterAllocator regAlloc)
 
         return x;
     }
+    
+    // Generate assembler code for assignments
+    public void GenAssign(Operand x, Operand y, Obj func)
+    {
+        var asm = Functions[func.Name];
+        var loadInstr = x.Struct.Type == StructKind.Int ? "sd" : "sb";
+
+        // always load value of y into register
+        Load(y, asm);
+        
+        // case 1.1: x is reg
+        // case 1.2: x is abs (global)
+        
+        // TODO assignment works different for abs, regs, and regrel
+        
+        // TODO call sd or sb
+    }
 
     // Generate assembler code for arithmetic operations.
     public void GenArithmetic(TokenKind op, Operand x, Operand y, Obj? func)
