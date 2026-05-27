@@ -347,6 +347,14 @@ public class ParserTests(ITestOutputHelper output)
             = 5;
         }
     ");
+    
+    [Fact]
+    public void ErrorAssignToValue() => AnalyzeErr(@"
+        fn main() {
+            var x: int;
+            5 = x;
+        }
+    ");
 
     [Fact]
     public void ErrorCallVariableAsFunction() => AnalyzeErr(@"

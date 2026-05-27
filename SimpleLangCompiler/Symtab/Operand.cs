@@ -29,7 +29,7 @@ public class Operand(Struct s, OperandKind kind)
     public int? Val;
     
     // Var-Reg, Var-RegRel: register
-    public Register Reg;
+    public Register? Reg;
     
     // Var-Abs, Func: address; Var-RegRel: offset
     public int? AdrOffset;

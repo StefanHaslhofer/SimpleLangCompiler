@@ -103,17 +103,27 @@ public class AsmGen(RegisterAllocator regAlloc)
     public void GenAssign(Operand x, Operand y, Obj func)
     {
         var asm = Functions[func.Name];
-        var loadInstr = x.Struct.Type == StructKind.Int ? "sd" : "sb";
+        var storeInstr = x.Struct.Type == StructKind.Int ? "sd" : "sb";
+        var offsetX = GetOperandOffset(x);
 
         // always load value of y into register
         Load(y, asm);
+
+        // TODO check and comment
+        if (x.AddrMode == AddressingMode.RegRel)
+        {
+            asm.Add($"{storeInstr} {y.Reg!.Value.ToLabel()}, {offsetX}(fp)");
+        }
+        else if (x.AddrMode == AddressingMode.Abs)
+        {
+            var rd = regAlloc.Alloc();
+            asm.Add($"la {rd}, {x.Label}");
+            asm.Add($"{storeInstr} {y.Reg!.Value.ToLabel()}, 0({rd})");
+            regAlloc.Free(rd);
+        }
         
-        // case 1.1: x is reg
-        // case 1.2: x is abs (global)
-        
-        // TODO assignment works different for abs, regs, and regrel
-        
-        // TODO call sd or sb
+        // free after assignment
+        regAlloc.Free(y.Reg!.Value);
     }
 
     // Generate assembler code for arithmetic operations.
@@ -145,21 +155,21 @@ public class AsmGen(RegisterAllocator regAlloc)
             switch (op)
             {
                 case TokenKind.Plus:
-                    asm.Add($"\tadd {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    asm.Add($"\tadd {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
                     break;
                 case TokenKind.Minus:
-                    asm.Add($"\tsub {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    asm.Add($"\tsub {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
                     break;
                 case TokenKind.Star:
-                    asm.Add($"\tmul {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    asm.Add($"\tmul {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
                     break;
                 case TokenKind.Slash:
-                    asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg.ToLabel()}, {y.Reg.ToLabel()}");
+                    asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
                     break;
             }
 
-            regAlloc.Free(x.Reg);
-            regAlloc.Free(y.Reg);
+            regAlloc.Free(x.Reg!.Value);
+            regAlloc.Free(y.Reg!.Value);
             x.Reg = rd;
         }
     }
@@ -186,7 +196,7 @@ public class AsmGen(RegisterAllocator regAlloc)
                     asm.Add($"\t{loadInstr} {rd.ToLabel()}, 0({rd.ToLabel()})");
                     break;
                 case AddressingMode.RegRel:
-                    asm.Add($"\t{loadInstr} {rd.ToLabel()}, {-16 - DWordSize * (x.AdrOffset + 1)}(fp)");
+                    asm.Add($"\t{loadInstr} {rd.ToLabel()}, {GetOperandOffset(x)}(fp)");
                     break;
                 case AddressingMode.Reg:
                     // do nothing if operand is already in register
@@ -292,8 +302,8 @@ public class AsmGen(RegisterAllocator regAlloc)
         if (x.Kind != OperandKind.None)
         {
             // move result into return register
-            asm.Add($"\tmv a0, {x.Reg.ToLabel()}");
-            regAlloc.Free(x.Reg);    
+            asm.Add($"\tmv a0, {x.Reg!.Value.ToLabel()}");
+            regAlloc.Free(x.Reg!.Value);    
         }
         
         asm.Add($"\tj {func.Name}_ret");
@@ -306,5 +316,10 @@ public class AsmGen(RegisterAllocator regAlloc)
         var space = numOfLocals * DWordSize + 16;
         // allocate stack frame (needs to be 16 byte aligned according to ABI spec)
         return (int)(Math.Ceiling(space / 16.0) * 16);
+    }
+
+    private int GetOperandOffset(Operand x)
+    {
+        return -16 - DWordSize * (x.AdrOffset ?? 0 + 1);
     }
 }
