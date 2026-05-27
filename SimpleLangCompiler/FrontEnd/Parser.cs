@@ -211,15 +211,15 @@ public class Parser
         {
             Get();
             Obj o = SymTab.Find(T.val);
-            x = new Operand(SymTab.VoidType, OperandKind.None);
             
             if (La.kind == TokenKind.Assign)
             {
+                x = AsmGen.VarOperand(o);
                 Get();
                 Operand y = Expression();
                 if (SymTab.CheckOperandCompatibility(x, y) && SymTab.CheckAssignability(x, y))
                 {
-                    x = AsmGen.VarOperand(o);
+                    
                     AsmGen.GenAssign(x, y, SymTab.CurFnc!);
                 }
             }
@@ -435,6 +435,7 @@ public class Parser
                 }
                 op = AsmGen.FuncOperand(o);
                 ActParameters();
+                AsmGen.GenFuncCall(SymTab.CurFnc!, op, []);
             } else if (o.Kind == ObjKind.Func)
             {
                 // syntax error if object is a function but is not called with parenthesis
