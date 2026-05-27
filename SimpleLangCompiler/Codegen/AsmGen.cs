@@ -24,7 +24,7 @@ public class AsmGen(RegisterAllocator regAlloc)
 
     // End of the text segment (calls main).
     public readonly List<string> TextSegmentEpilogue = [];
-    
+
     private const int DWordSize = 8;
 
     // TODO this method should write to a file or at least should produce output that can be automatically linked
@@ -49,7 +49,7 @@ public class AsmGen(RegisterAllocator regAlloc)
         {
             Console.WriteLine(s);
         }
-        
+
         foreach (var f in Functions)
         {
             foreach (var s in f.Value)
@@ -57,7 +57,7 @@ public class AsmGen(RegisterAllocator regAlloc)
                 Console.WriteLine(s);
             }
         }
-        
+
         foreach (var s in TextSegmentEpilogue)
         {
             Console.WriteLine(s);
@@ -95,8 +95,18 @@ public class AsmGen(RegisterAllocator regAlloc)
     {
         Operand x = new Operand(o.Type, OperandKind.Func);
         x.AdrOffset = o.AdrOffset;
+        x.Label = o.Name;
 
         return x;
+    }
+
+    public void GenFuncCall(Obj func, Operand target, List<Operand> args)
+    {
+        // TODO move params into a0...a7
+        // TODO jump to function
+        var asm = Functions[func.Name];
+        
+        asm.Add($"call §{target.Label}");
     }
     
     // Generate assembler code for assignments
@@ -108,20 +118,21 @@ public class AsmGen(RegisterAllocator regAlloc)
 
         // always load value of y into register
         Load(y, asm);
-
-        // TODO check and comment
+        
         if (x.AddrMode == AddressingMode.RegRel)
         {
+            // x := local var
             asm.Add($"{storeInstr} {y.Reg!.Value.ToLabel()}, {offsetX}(fp)");
         }
         else if (x.AddrMode == AddressingMode.Abs)
         {
+            // x := global var
             var rd = regAlloc.Alloc();
             asm.Add($"la {rd}, {x.Label}");
             asm.Add($"{storeInstr} {y.Reg!.Value.ToLabel()}, 0({rd})");
             regAlloc.Free(rd);
         }
-        
+
         // free after assignment
         regAlloc.Free(y.Reg!.Value);
     }
@@ -241,7 +252,7 @@ public class AsmGen(RegisterAllocator regAlloc)
     public void GenFuncEpilogue(Obj obj)
     {
         var funcAsm = Functions[obj.Name];
-        
+
         // label so early returns can jump here
         funcAsm.Add($"{obj.Name}_ret:");
         // Calculate space for locals
@@ -254,13 +265,13 @@ public class AsmGen(RegisterAllocator regAlloc)
         funcAsm.Add($"\taddi sp, sp, {stackFrameSize}");
         funcAsm.Add("\tret");
     }
-    
+
     public void GenTextPrologue()
     {
         TextSegmentPrologue.Add(".text");
         TextSegmentPrologue.Add("j skip");
     }
-    
+
     public void GenTextEpilogue()
     {
         // call main
@@ -294,18 +305,23 @@ public class AsmGen(RegisterAllocator regAlloc)
             }
         }
     }
-    
+
     public void GenReturn(Operand x, Obj func)
     {
         var asm = Functions[func.Name];
 
-        if (x.Kind != OperandKind.None)
+        switch (x.Kind)
         {
-            // move result into return register
-            asm.Add($"\tmv a0, {x.Reg!.Value.ToLabel()}");
-            regAlloc.Free(x.Reg!.Value);    
+            case OperandKind.Var:
+            case OperandKind.Func:
+                asm.Add($"\tmv a0, {x.Reg!.Value.ToLabel()}");
+                regAlloc.Free(x.Reg!.Value);
+                break;
+            case OperandKind.Val:
+                asm.Add($"\tli a0, {x.Val}");
+                break;
         }
-        
+
         asm.Add($"\tj {func.Name}_ret");
     }
 

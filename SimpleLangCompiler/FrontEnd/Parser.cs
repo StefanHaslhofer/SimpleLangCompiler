@@ -211,7 +211,7 @@ public class Parser
         {
             Get();
             Obj o = SymTab.Find(T.val);
-            x = new Operand(o.Type, GetOpKind(T.val));
+            x = new Operand(SymTab.VoidType, OperandKind.None);
             
             if (La.kind == TokenKind.Assign)
             {
@@ -219,6 +219,7 @@ public class Parser
                 Operand y = Expression();
                 if (SymTab.CheckOperandCompatibility(x, y) && SymTab.CheckAssignability(x, y))
                 {
+                    x = AsmGen.VarOperand(o);
                     AsmGen.GenAssign(x, y, SymTab.CurFnc!);
                 }
             }
@@ -230,7 +231,9 @@ public class Parser
                 {
                     SynErr(37);
                 }
+                x = AsmGen.FuncOperand(o);
                 ActParameters();
+                AsmGen.GenFuncCall(SymTab.CurFnc!, x, []);
             }
             else SynErr(31);
             Expect(TokenKind.Semicolon);
