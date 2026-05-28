@@ -100,10 +100,9 @@ public class AsmGen(RegisterAllocator regAlloc)
         return x;
     }
 
-    public void GenFuncCall(Obj func, Operand target, List<Operand> args)
+    // Write parameters in registers a0...a7 and call function.
+    public void GenFuncCall(Obj func, Operand target, List<Operand> args, bool isFactor = false)
     {
-        // TODO move params into a0...a7
-        // TODO jump to function
         var asm = Functions[func.Name];
 
         foreach (var arg in args)
@@ -112,18 +111,22 @@ public class AsmGen(RegisterAllocator regAlloc)
         }
         
         asm.Add($"\tcall {target.Label}");
+        
+        if (isFactor)
+        {
+            target.Reg = Register.A0;
+        }
     }
     
     // Generate assembler code for assignments
     public void GenAssign(Operand x, Operand y, Obj func)
     {
-        // TODO if y is a function the result should be in a0
         var asm = Functions[func.Name];
         var storeInstr = x.Struct.Type == StructKind.Int ? "sd" : "sb";
         var offsetX = GetOperandOffset(x);
-
-        // TODO assign not working yet
+        
         // always load value of y into register
+        // TODO if y is a function the result should be in a0
         Load(y, asm);
         
         if (x.AddrMode == AddressingMode.RegRel)

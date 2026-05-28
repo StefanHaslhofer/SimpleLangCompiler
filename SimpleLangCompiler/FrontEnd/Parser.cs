@@ -225,15 +225,14 @@ public class Parser
             }
             else if (La.kind == TokenKind.LParen)
             {
-                // TODO store params in registers a0 to a7 (function params)
-                //  or push directly to the stack to support >8 params
                 if (o.Kind != ObjKind.Func)
                 {
                     SynErr(37);
                 }
                 x = AsmGen.FuncOperand(o);
-                ActParameters();
-                AsmGen.GenFuncCall(SymTab.CurFnc!, x, []);
+                List<Operand> args = ActParameters();
+                // TODO add warning here: return value not used
+                AsmGen.GenFuncCall(SymTab.CurFnc!, x, args);
             }
             else SynErr(31);
             Expect(TokenKind.Semicolon);
@@ -313,6 +312,7 @@ public class Parser
         {
             Addop();
             op = T.kind;
+            // TODO negation not yet implemented
         }
         Operand x = Term();
         while (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
@@ -329,15 +329,17 @@ public class Parser
         return x;
     }
 
-    void ActParameters()
+    List<Operand> ActParameters()
     {
         Obj fnc = SymTab.Find(T.val);
+        List<Operand> ops = [];
         Expect(TokenKind.LParen);
         int expr = 0;
         if (StartOf(2))
         {
             // TODO operands(=params) need to be pushed to registers a0...a7
             Operand x = Expression();
+            ops.Add(x);
             expr++;
             // first n (= obj.NPars) locals are parameters
             LinkedListNode<Obj>? arg = fnc.Locals.First;
@@ -348,6 +350,7 @@ public class Parser
             {
                 Get();
                 x = Expression();
+                ops.Add(x);
                 expr++;
                 
                 arg = arg?.Next;
@@ -361,6 +364,8 @@ public class Parser
             SemErr(Errors.WrongArgumentCount);
         }
         Expect(TokenKind.RParen);
+        
+        return ops;
     }
 
     void Condition()
@@ -434,8 +439,8 @@ public class Parser
                     SynErr(37);
                 }
                 op = AsmGen.FuncOperand(o);
-                ActParameters();
-                AsmGen.GenFuncCall(SymTab.CurFnc!, op, []);
+                List<Operand> args = ActParameters();
+                AsmGen.GenFuncCall(SymTab.CurFnc!, op, args, true);
             } else if (o.Kind == ObjKind.Func)
             {
                 // syntax error if object is a function but is not called with parenthesis

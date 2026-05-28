@@ -60,7 +60,7 @@ public class RegisterAllocator
     ]);
 
     private readonly Stack<Register> _availableParamRegs = new([
-        Register.A0, Register.A1, Register.A2, Register.A3, Register.A4, Register.A5, Register.A6, Register.A7
+        Register.A7, Register.A6, Register.A5, Register.A4, Register.A3, Register.A2, Register.A1, Register.A0 
     ]);
 
     private readonly HashSet<Register> _allocated = new();
