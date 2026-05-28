@@ -60,7 +60,7 @@ public class RegisterAllocator
     ]);
 
     private readonly Stack<Register> _availableParamRegs = new([
-        Register.A7, Register.A6, Register.A5, Register.A4, Register.A3, Register.A2, Register.A1, Register.A0 
+        Register.A7, Register.A6, Register.A5, Register.A4, Register.A3, Register.A2, Register.A1, Register.A0
     ]);
 
     private readonly HashSet<Register> _allocated = new();
@@ -74,20 +74,24 @@ public class RegisterAllocator
             or Register.A4 or Register.A5 or Register.A6 or Register.A7;
 
 
-    // Allocates a register. Returns false if none are available.
+    // Allocates a register. Returns false if none is available.
     public bool TryAlloc(bool isParam, out Register reg)
     {
         var pool = isParam ? _availableParamRegs : _availableTempRegs;
-
-        if (pool.Count == 0)
+        
+        try
         {
+            // pop latest register from stack and allocate it
+            reg = pool.Pop();
+            _allocated.Add(reg);
+        }
+        catch (InvalidOperationException)
+        {
+            // TODO write warning to error list
             reg = default;
             return false;
         }
-
-        // pop latest register from stack and allocate it
-        reg = pool.Pop();
-        _allocated.Add(reg);
+        
         return true;
     }
 
@@ -96,10 +100,27 @@ public class RegisterAllocator
         if (!TryAlloc(isParam, out var reg))
         {
             // TODO add to error list here instead of throwing an error
-            throw new Exception($"No registers available to allocate.");
+            throw new Exception("No registers available to allocate.");
         }
 
         return reg;
+    }
+
+    /// Attempts to allocate the return value register (a0) from the available parameter registers.
+    /// <returns>
+    /// <c>true</c> if a0 was successfully allocated as the return register;
+    /// <c>false</c> if a0 was unavailable (already allocated or a1–a7 was next in the pool).
+    /// </returns>
+    public bool TryAllocReturn()
+    {
+        if (!_availableParamRegs.TryPop(out var reg) || reg != Register.A0)
+        {
+            // TODO add to error list here
+            return false;
+        }
+        
+        _allocated.Add(reg);
+        return true;
     }
 
     // Deallocate a register.
@@ -123,12 +144,12 @@ public class RegisterAllocator
     }
 
 
-    // Deallocate all registers.
-    public void FreeAll()
+    // Deallocate registers a0 to a7.
+    public void FreeAllParams()
     {
         foreach (var reg in _allocated)
         {
-            Free(reg);
+            if (IsParamReg(reg)) Free(reg);
         }
     }
 

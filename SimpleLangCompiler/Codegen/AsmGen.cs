@@ -114,7 +114,9 @@ public class AsmGen(RegisterAllocator regAlloc)
         
         if (isFactor)
         {
+            regAlloc.TryAllocReturn();
             target.Reg = Register.A0;
+            target.AddrMode = AddressingMode.Reg;
         }
     }
     
@@ -126,7 +128,6 @@ public class AsmGen(RegisterAllocator regAlloc)
         var offsetX = GetOperandOffset(x);
         
         // always load value of y into register
-        // TODO if y is a function the result should be in a0
         Load(y, asm);
         
         if (x.AddrMode == AddressingMode.RegRel)
@@ -252,7 +253,7 @@ public class AsmGen(RegisterAllocator regAlloc)
             // store double word or byte depending on parameter type
             var storeInstr = param.Type.Type == StructKind.Int ? "sd" : "sb";
             funcAsm.Add($"\t{storeInstr} a{i}, {stackFrameSize - 16 - (i + 1) * DWordSize}(sp)");
-            // TODO free register a{i-1} --> maybe not here
+            regAlloc.FreeAllParams();
         }
 
         // set frame pointer (new fp = old sp)
@@ -346,6 +347,6 @@ public class AsmGen(RegisterAllocator regAlloc)
 
     private int GetOperandOffset(Operand x)
     {
-        return -16 - DWordSize * (x.AdrOffset ?? 0 + 1);
+        return -16 - DWordSize * ((x.AdrOffset ?? 0) + 1);
     }
 }
