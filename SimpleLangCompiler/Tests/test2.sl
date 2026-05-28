@@ -1,4 +1,4 @@
-﻿fn addup(a: int, b: int): int {
+﻿fn add(a: int, b: int): int {
     return a + b;
 }
 
@@ -8,5 +8,5 @@ fn main() {
     var z: int;
     x = 5;
     y = 4;
-    z = addup(x, y);
+    z = add(x, y);
 }
