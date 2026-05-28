@@ -15,6 +15,7 @@ public class Errors {
     public const string MissingReturnValue = "missing return value";
     public const string WrongArgumentType = "argument type mismatch";
     public const string WrongArgumentCount = "number of arguments does not match";
+    public const string ReturnValueIgnored = "return value is ignored";
     
 	public virtual void SynErr (int line, int col, int n) {
 		string s;

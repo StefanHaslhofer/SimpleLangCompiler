@@ -236,8 +236,8 @@ public class Parser
                 }
                 x = AsmGen.FuncOperand(o);
                 List<Operand> args = ActParameters();
-                // TODO add warning here: return value not used
                 AsmGen.GenFuncCall(SymTab.CurFnc!, x, args);
+                Warning(Errors.ReturnValueIgnored);
             }
             else SynErr(31);
             Expect(TokenKind.Semicolon);
@@ -342,7 +342,6 @@ public class Parser
         int expr = 0;
         if (StartOf(2))
         {
-            // TODO operands(=params) need to be pushed to registers a0...a7
             Operand x = Expression();
             ops.Add(x);
             expr++;
