@@ -1,4 +1,6 @@
-﻿namespace SimpleLangCompiler.Codegen;
+﻿using SimpleLangCompiler.FrontEnd;
+
+namespace SimpleLangCompiler.Codegen;
 
 // RISC-V ABI register numbers
 public enum Register
@@ -63,7 +65,7 @@ public class RegisterAllocator
         Register.A7, Register.A6, Register.A5, Register.A4, Register.A3, Register.A2, Register.A1, Register.A0
     ]);
 
-    private readonly HashSet<Register> _allocated = new();
+    private readonly List<Register> _allocated = [];
 
     private bool IsTempReg(Register reg) =>
         reg is Register.T0 or Register.T1 or Register.T2 or Register.T3
@@ -79,19 +81,14 @@ public class RegisterAllocator
     {
         var pool = isParam ? _availableParamRegs : _availableTempRegs;
         
-        try
+        if (!pool.TryPop(out var top)) 
         {
-            // pop latest register from stack and allocate it
-            reg = pool.Pop();
-            _allocated.Add(reg);
-        }
-        catch (InvalidOperationException)
-        {
-            // TODO write warning to error list
             reg = default;
-            return false;
+            return false; 
         }
         
+        _allocated.Add(top);
+        reg = top;
         return true;
     }
 
@@ -99,28 +96,22 @@ public class RegisterAllocator
     {
         if (!TryAlloc(isParam, out var reg))
         {
-            // TODO add to error list here instead of throwing an error
-            throw new Exception("No registers available to allocate.");
+            throw new FatalError("No registers available to allocate.");
         }
 
         return reg;
     }
 
     /// Attempts to allocate the return value register (a0) from the available parameter registers.
-    /// <returns>
-    /// <c>true</c> if a0 was successfully allocated as the return register;
-    /// <c>false</c> if a0 was unavailable (already allocated or a1–a7 was next in the pool).
-    /// </returns>
-    public bool TryAllocReturn()
+    /// <throws cref="FatalError" /> if a0 was unavailable (already allocated or a1–a7 was next in the pool)
+    public void AllocReturn()
     {
         if (!_availableParamRegs.TryPop(out var reg) || reg != Register.A0)
         {
-            // TODO add to error list here
-            return false;
+            throw new FatalError($"Cannot allocate register {Register.A0}.");
         }
         
         _allocated.Add(reg);
-        return true;
     }
 
     // Deallocate a register.
@@ -128,8 +119,7 @@ public class RegisterAllocator
     {
         if (!_allocated.Remove(reg))
         {
-            // TODO add to error list here instead of throwing an error
-            throw new Exception($"Cannot deallocate register {reg}.");
+            throw new FatalError($"Cannot deallocate register {reg}.");
         }
 
         // push register to the available stack again
@@ -147,7 +137,8 @@ public class RegisterAllocator
     // Deallocate registers a0 to a7.
     public void FreeAllParams()
     {
-        foreach (var reg in _allocated)
+        // iterate in reverse order to push latest used registers to the available stack first
+        foreach (var reg in _allocated.ToList().AsEnumerable().Reverse())
         {
             if (IsParamReg(reg)) Free(reg);
         }

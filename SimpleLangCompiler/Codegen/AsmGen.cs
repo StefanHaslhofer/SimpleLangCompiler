@@ -112,9 +112,12 @@ public class AsmGen(RegisterAllocator regAlloc)
         
         asm.Add($"\tcall {target.Label}");
         
+        // free all param registers after function return
+        regAlloc.FreeAllParams();
+        
         if (isFactor)
         {
-            regAlloc.TryAllocReturn();
+            regAlloc.AllocReturn();
             target.Reg = Register.A0;
             target.AddrMode = AddressingMode.Reg;
         }
@@ -253,7 +256,6 @@ public class AsmGen(RegisterAllocator regAlloc)
             // store double word or byte depending on parameter type
             var storeInstr = param.Type.Type == StructKind.Int ? "sd" : "sb";
             funcAsm.Add($"\t{storeInstr} a{i}, {stackFrameSize - 16 - (i + 1) * DWordSize}(sp)");
-            regAlloc.FreeAllParams();
         }
 
         // set frame pointer (new fp = old sp)

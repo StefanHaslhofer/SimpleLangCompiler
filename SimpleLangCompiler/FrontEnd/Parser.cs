@@ -38,6 +38,12 @@ public class Parser
         _errDist = 0;
     }
 
+    public void Warning(string msg)
+    {
+        if (_errDist >= MinErrDist) Errors.Warning(T.line, T.col, msg);
+        _errDist = 0;
+    }
+
     void Get()
     {
         for (;;)
