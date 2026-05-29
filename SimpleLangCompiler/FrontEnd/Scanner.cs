@@ -423,7 +423,7 @@ public class Scanner {
 			case 15:
 				{t.kind = TokenKind.Assign; break;}
 			case 16:
-				{t.kind = TokenKind.Hash; break;}
+				{t.kind = TokenKind.NotEq; break;}
 			case 17:
 				{t.kind = TokenKind.GreaterEq; break;}
 			case 18:

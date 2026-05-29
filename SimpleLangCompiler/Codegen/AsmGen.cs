@@ -1,4 +1,6 @@
-﻿using System.Reflection.Emit;
+﻿using System.Diagnostics;
+using System.Reflection.Emit;
+using System.Runtime.InteropServices.Swift;
 using SimpleLangCompiler.FrontEnd;
 using SimpleLangCompiler.Symtab;
 
@@ -25,7 +27,10 @@ public class AsmGen(RegisterAllocator regAlloc)
     // End of the text segment (calls main).
     public readonly List<string> TextSegmentEpilogue = [];
 
+    public string GetNewLabel() => $"L{_labelCount++}";
+    
     private const int DWordSize = 8;
+    private int _labelCount;
 
     // TODO this method should write to a file or at least should produce output that can be automatically linked
     public void Print()
@@ -123,7 +128,73 @@ public class AsmGen(RegisterAllocator regAlloc)
         }
     }
     
-    // Generate assembler code for assignments
+    // Generate assembler code for conditions.
+    public void GenJcc(TokenKind op, Operand x, Operand y, bool fjump, string targetLbl, Obj func)
+    {
+        var asm = Functions[func.Name];
+        
+        // jump directly if both operands are fixed values and the condition is true (no register allocation needed)
+        if (x.Kind == OperandKind.Val && y.Kind == OperandKind.Val)
+        {
+            bool res = op switch
+            {
+                TokenKind.Assign => x.Val == y.Val,
+                TokenKind.NotEq => x.Val != y.Val,
+                TokenKind.Less => x.Val < y.Val,
+                TokenKind.GreaterEq => x.Val >= y.Val,
+                TokenKind.Greater => x.Val > y.Val,
+                TokenKind.LessEq => x.Val <= y.Val,
+                _ => throw new FatalError($"Unsupported comparison operation: {op}")
+            };
+            
+            // xor to invert condition on false jumps
+            if (fjump) res = !res;
+
+            // jump if condition is true
+            if (res)
+            {
+                asm.Add($"\tj {targetLbl}");
+            }
+
+            return;
+        }
+        
+        // always load both operands into registers to keep code simple
+        Load(x, asm);
+        Load(y, asm);
+        
+        int opCode = op switch
+        {
+            TokenKind.Assign => 0,
+            TokenKind.NotEq => 1,
+            TokenKind.Less => 2,
+            TokenKind.GreaterEq => 3,
+            TokenKind.Greater => 4,
+            TokenKind.LessEq => 5,
+            _ => throw new FatalError($"Unsupported comparison operation: {op}")
+        };
+        
+        // xor to invert condition on false jumps
+        if (fjump) opCode ^= 1;
+        
+        // convert opcodes to assembler instructions
+        string instr = opCode switch
+        {
+            0 => "beq",   // ==
+            1 => "bne",   // != ('#' in my case -> grammar on GitHub differs from original) 
+            2 => "blt",   // <
+            3 => "bge",   // >=
+            4 => "bgt",   // >
+            5 => "ble",   // <=
+            _ => throw new FatalError("Invalid opcode")
+        };
+        
+        asm.Add($"{instr} {x.Reg!.Value.ToLabel()} {y.Reg!.Value.ToLabel()} {targetLbl}");
+        regAlloc.Free(x.Reg.Value);
+        regAlloc.Free(y.Reg.Value);
+    }
+    
+    // Generate assembler code for assignments.
     public void GenAssign(Operand x, Operand y, Obj func)
     {
         var asm = Functions[func.Name];
@@ -168,35 +239,49 @@ public class AsmGen(RegisterAllocator regAlloc)
                 case TokenKind.Slash:
                     x.Val /= y.Val; break;
             }
+
+            return;
         }
-        else
+
+        var asm = Functions[func!.Name];
+        Load(x, asm);
+        Load(y, asm);
+
+        // note: register allocation is not optimal
+        var rd = regAlloc.Alloc();
+        switch (op)
         {
-            var asm = Functions[func!.Name];
-            Load(x, asm);
-            Load(y, asm);
-
-            // note: register allocation is not optimal
-            var rd = regAlloc.Alloc();
-            switch (op)
-            {
-                case TokenKind.Plus:
-                    asm.Add($"\tadd {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
-                    break;
-                case TokenKind.Minus:
-                    asm.Add($"\tsub {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
-                    break;
-                case TokenKind.Star:
-                    asm.Add($"\tmul {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
-                    break;
-                case TokenKind.Slash:
-                    asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
-                    break;
-            }
-
-            regAlloc.Free(x.Reg!.Value);
-            regAlloc.Free(y.Reg!.Value);
-            x.Reg = rd;
+            case TokenKind.Plus:
+                asm.Add($"\tadd {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                break;
+            case TokenKind.Minus:
+                asm.Add($"\tsub {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                break;
+            case TokenKind.Star:
+                asm.Add($"\tmul {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                break;
+            case TokenKind.Slash:
+                asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                break;
         }
+
+        regAlloc.Free(x.Reg!.Value);
+        regAlloc.Free(y.Reg!.Value);
+        x.Reg = rd;
+    }
+    
+    // Add a jump instruction to a label.
+    public void GenJump(string lbl, Obj func)
+    {
+        var asm = Functions[func.Name];
+        asm.Add($"\tj {lbl}");
+    }
+    
+    // Add a label to the assembly code.
+    public void GenLbl(string lbl, Obj func)
+    {
+        var asm = Functions[func.Name];
+        asm.Add($"{lbl}:");
     }
 
     // Load operand value into register.

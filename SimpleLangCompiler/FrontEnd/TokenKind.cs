@@ -31,7 +31,7 @@ public enum TokenKind
 
     // Assignment/Relops
     Assign    = 13,  // =
-    Hash      = 19,  // #
+    NotEq     = 19,  // #
     Less      = 20,  // <
     Greater   = 21,  // >
     GreaterEq = 22,  // >=

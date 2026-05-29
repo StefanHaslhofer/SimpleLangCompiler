@@ -271,12 +271,18 @@ public class Parser
         }
         else if (La.kind == TokenKind.While)
         {
+            string startLbl = AsmGen.GetNewLabel();
+            string endLbl = AsmGen.GetNewLabel();
             Get();
             Expect(TokenKind.LParen);
-            Condition();
+            Condition(true, startLbl);
             Expect(TokenKind.RParen);
             Expect(TokenKind.LBrace);
             StatSeq();
+            // jump back to start of loop
+            AsmGen.GenJump(startLbl, SymTab.CurFnc!);
+            // end of loop
+            AsmGen.GenLbl(endLbl, SymTab.CurFnc!);
             Expect(TokenKind.RBrace);
         }
         else if (La.kind == TokenKind.Return)
@@ -372,16 +378,16 @@ public class Parser
         return ops;
     }
 
-    void Condition()
+    void Condition(bool fjump, string lbl)
     {
         Operand x = Expression();
         Relop();
+        var op = T.kind;
         Operand y = Expression();
 
         if (SymTab.CheckOperandCompatibility(x, y))
         {
-            // TODO check relop (I don't know if this needs to be done here or outside)
-            //  AsmGen.GenRelop(x, y, SymTab.CurFnc);
+            AsmGen.GenJcc(op, x, y, fjump, lbl, SymTab.CurFnc!);
         }
     }
 
@@ -390,7 +396,7 @@ public class Parser
         switch (La.kind)
         {
             case TokenKind.Assign:    Get(); break;
-            case TokenKind.Hash:      Get(); break;
+            case TokenKind.NotEq:     Get(); break;
             case TokenKind.Less:      Get(); break;
             case TokenKind.Greater:   Get(); break;
             case TokenKind.GreaterEq: Get(); break;
