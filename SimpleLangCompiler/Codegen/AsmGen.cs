@@ -6,6 +6,7 @@ using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.Codegen;
 
+// TODO generate assembler code for built in functions
 public class AsmGen(RegisterAllocator regAlloc)
 {
     // Holds the starting lines of the .bss segment.
