@@ -189,7 +189,7 @@ public class AsmGen(RegisterAllocator regAlloc)
             _ => throw new FatalError("Invalid opcode")
         };
         
-        asm.Add($"{instr} {x.Reg!.Value.ToLabel()} {y.Reg!.Value.ToLabel()} {targetLbl}");
+        asm.Add($"\t{instr} {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}, {targetLbl}");
         regAlloc.Free(x.Reg.Value);
         regAlloc.Free(y.Reg.Value);
     }
@@ -355,10 +355,10 @@ public class AsmGen(RegisterAllocator regAlloc)
         funcAsm.Add($"{obj.Name}_ret:");
         // Calculate space for locals
         var stackFrameSize = CalculateStackFrameSize(obj.Locals.Count);
-        // restore return address
-        funcAsm.Add($"\tlw ra, {stackFrameSize - 4}(sp)");
         // restore caller frame pointer
-        funcAsm.Add($"\tlw fp, {stackFrameSize - 8}(sp)");
+        funcAsm.Add($"\tld fp, {stackFrameSize - 16}(sp)");
+        // restore return address
+        funcAsm.Add($"\tld ra, {stackFrameSize - 8}(sp)");
         // deallocate stack frame
         funcAsm.Add($"\taddi sp, sp, {stackFrameSize}");
         funcAsm.Add("\tret");
@@ -412,8 +412,21 @@ public class AsmGen(RegisterAllocator regAlloc)
         {
             case OperandKind.Var:
             case OperandKind.Func:
-                asm.Add($"\tmv a0, {x.Reg!.Value.ToLabel()}");
-                regAlloc.Free(x.Reg!.Value);
+                if (x.AddrMode == AddressingMode.Reg)
+                {
+                    asm.Add($"\tmv a0, {x.Reg!.Value.ToLabel()}");
+                    regAlloc.Free(x.Reg!.Value);
+                }
+                else
+                {
+                    // register relative vars have to be loaded into register first
+                    var rd = regAlloc.Alloc();
+                    var loadInstr = x.Struct.Type == StructKind.Int ? "ld" : "lb";
+                    asm.Add($"\t{loadInstr} {rd.ToLabel()}, {GetOperandOffset(x)}(fp)");
+                    asm.Add($"\tmv a0, {rd.ToLabel()}");
+                    regAlloc.Free(rd);
+                }
+                
                 break;
             case OperandKind.Val:
                 asm.Add($"\tli a0, {x.Val}");

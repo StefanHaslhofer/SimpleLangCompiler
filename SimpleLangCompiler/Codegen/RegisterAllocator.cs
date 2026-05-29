@@ -113,7 +113,7 @@ public class RegisterAllocator
         
         _allocated.Add(reg);
     }
-
+    
     // Deallocate a register.
     public void Free(Register reg)
     {

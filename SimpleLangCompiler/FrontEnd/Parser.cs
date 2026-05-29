@@ -40,7 +40,7 @@ public class Parser
 
     public void Warning(string msg)
     {
-        if (_errDist >= MinErrDist) Errors.Warning(T.line, T.col, msg);
+        if (_errDist >= MinErrDist) Errors.Warning(T.line, T.col, $"Warning: {msg}");
         _errDist = 0;
     }
 
@@ -338,18 +338,6 @@ public class Parser
             Expect(TokenKind.Semicolon);
         }
         else SynErr(32);
-    }
-
-    private OperandKind GetOpKind(string val)
-    {
-        Obj o = SymTab.Find(val);
-        
-        return o.Kind switch
-        {
-            ObjKind.Var => OperandKind.Var,
-            ObjKind.Func => OperandKind.Func,
-            _ => OperandKind.None
-        };
     }
 
     Operand Expression()
