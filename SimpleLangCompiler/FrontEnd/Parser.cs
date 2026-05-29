@@ -244,30 +244,64 @@ public class Parser
         }
         else if (La.kind == TokenKind.If)
         {
+            // Get labels: endLbl for the end of the if-else chain,
+            // nextLbl for the next block (defaults to endLbl if no else).
+            string endLbl = AsmGen.GetNewLabel();
+            string nextLbl = AsmGen.GetNewLabel();
+            
             Get();
             Expect(TokenKind.LParen);
-            Condition();
+            // False path: jump to next "else" block.
+            Condition(true, nextLbl);
             Expect(TokenKind.RParen);
             Expect(TokenKind.LBrace);
             StatSeq();
             Expect(TokenKind.RBrace);
+
+            
+            // True path: jump to end if there are "else" blocks.
+            if (La.kind == TokenKind.Elseif || La.kind == TokenKind.Else)
+            {
+                AsmGen.GenJump(endLbl, SymTab.CurFnc!);   
+            }
+            
             while (La.kind == TokenKind.Elseif)
             {
+                AsmGen.GenLbl(nextLbl, SymTab.CurFnc!);
+                nextLbl = AsmGen.GetNewLabel();
+                
                 Get();
                 Expect(TokenKind.LParen);
-                Condition();
+                // False path: jump to next "else" block.
+                Condition(true, nextLbl);
                 Expect(TokenKind.RParen);
                 Expect(TokenKind.LBrace);
                 StatSeq();
                 Expect(TokenKind.RBrace);
+                
+                // True path: jump to end if there are "else" blocks.
+                if (La.kind == TokenKind.Elseif || La.kind == TokenKind.Else)
+                {
+                    AsmGen.GenJump(endLbl, SymTab.CurFnc!);   
+                }
             }
             if (La.kind == TokenKind.Else)
             {
+                AsmGen.GenLbl(nextLbl, SymTab.CurFnc!);
+                
                 Get();
                 Expect(TokenKind.LBrace);
                 StatSeq();
                 Expect(TokenKind.RBrace);
             }
+            else
+            {
+                // Emit next label as end if no "else" block is present.
+                AsmGen.GenLbl(nextLbl, SymTab.CurFnc!);
+            }
+            
+            // end of "if-else" chain
+            AsmGen.GenLbl(endLbl, SymTab.CurFnc!);
         }
         else if (La.kind == TokenKind.While)
         {
@@ -275,15 +309,17 @@ public class Parser
             string endLbl = AsmGen.GetNewLabel();
             Get();
             Expect(TokenKind.LParen);
-            Condition(true, startLbl);
+            // start of loop
+            AsmGen.GenLbl(startLbl, SymTab.CurFnc!);
+            Condition(true, endLbl);
             Expect(TokenKind.RParen);
             Expect(TokenKind.LBrace);
             StatSeq();
             // jump back to start of loop
             AsmGen.GenJump(startLbl, SymTab.CurFnc!);
+            Expect(TokenKind.RBrace);
             // end of loop
             AsmGen.GenLbl(endLbl, SymTab.CurFnc!);
-            Expect(TokenKind.RBrace);
         }
         else if (La.kind == TokenKind.Return)
         {
