@@ -75,6 +75,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // so we skip the usual function call convention and directly store its result in register a0
         // for consistent handling outside this method.
         asm.Add($"\tandi {Register.A0.ToLabel()}, {x.Reg!.Value.ToLabel()}, 0xff"); // mask first byte
+        regAlloc.Free(x.Reg.Value);
     }
 
     // Generate assembler code for built-in "put" function.
@@ -205,10 +206,9 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
         if (isFactor)
         {
-            var loadInstr = GetLoadInstr(target.Struct);
             // store return value in tmp register
             var reg = regAlloc.Alloc();
-            asm.Add($"\t{loadInstr} {reg.ToLabel()}, 0({Register.A0.ToLabel()})");
+            asm.Add($"\tmv {reg.ToLabel()}, {Register.A0.ToLabel()}");
             target.Reg = reg;
             target.AddrMode = AddressingMode.Reg;
         }
