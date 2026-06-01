@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using SimpleLangCompiler.Codegen;
 using SimpleLangCompiler.Symtab;
 
@@ -557,14 +558,37 @@ public class Parser
         Expect(TokenKind.Eof);
     }
 
-    // Try to parse a string consisting of a single quoted char.
+    // Try to parse a string consisting of a single quoted char. Note: this method is LLM generated.
     private bool TryParseQuotedChar(string s, out char ch)
     {
         ch = default;
-        if (s.Length != 3 || s[0] != '\'' || s[2] != '\'')
+        
+        // check if the string is enclosed in single quotes
+        if (s.Length < 2 || s[0] != '\'' || s[^1] != '\'')
             return false;
-        ch = s[1];
-        return true;
+
+        // extract the content between the quotes
+        string inner = s[1..^1];
+        
+        // if the inner content is a single character, return it
+        if (inner.Length == 1)
+        {
+            ch = inner[0];
+            return true;
+        } 
+        
+        // if the inner content is an escape sequence (e.g., "\n"), unescape it
+        if (inner.Length == 2 && inner[0] == '\\')
+        {
+            string unescaped = Regex.Unescape(inner);
+            if (unescaped.Length == 1)
+            {
+                ch = unescaped[0];
+                return true;
+            }
+        }
+
+        return false;
     }
     
     static readonly bool[,] set =
