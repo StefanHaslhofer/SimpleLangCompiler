@@ -14,8 +14,8 @@ public class Parser
     public readonly SymbolTable SymTab;
     public readonly AsmGen AsmGen;
 
-    private Token T;   // last recognized token
-    private Token La;  // lookahead token
+    private Token T; // last recognized token
+    private Token La; // lookahead token
     private int _errDist = MinErrDist;
 
     public Parser(Scanner scanner, string buildEnv)
@@ -50,14 +50,20 @@ public class Parser
         {
             T = La;
             La = Scanner.Scan();
-            if (La.kind <= TokenKind.NoSym) { ++_errDist; break; }
+            if (La.kind <= TokenKind.NoSym)
+            {
+                ++_errDist;
+                break;
+            }
+
             La = T;
         }
     }
 
     void Expect(TokenKind n)
     {
-        if (La.kind == n) Get(); else SynErr((int)n);
+        if (La.kind == n) Get();
+        else SynErr((int)n);
     }
 
     bool StartOf(int s)
@@ -78,8 +84,15 @@ public class Parser
     bool WeakSeparator(TokenKind n, int syFol, int repFol)
     {
         TokenKind kind = La.kind;
-        if (kind == n) { Get(); return true; }
-        else if (StartOf(repFol)) { return false; }
+        if (kind == n)
+        {
+            Get();
+            return true;
+        }
+        else if (StartOf(repFol))
+        {
+            return false;
+        }
         else
         {
             SynErr((int)n);
@@ -88,6 +101,7 @@ public class Parser
                 Get();
                 kind = La.kind;
             }
+
             return StartOf(syFol);
         }
     }
@@ -95,7 +109,7 @@ public class Parser
     void SimpleLang()
     {
         AsmGen.GenTextPrologue();
-        
+
         Declaration();
         while (La.kind == TokenKind.Var || La.kind == TokenKind.Fn)
         {
@@ -138,23 +152,24 @@ public class Parser
         Expect(TokenKind.Ident);
         var name = T.val;
         var obj = SymTab.Insert(kind, name, null);
-        
+
         SymTab.OpenScope();
         SymTab.CurFnc = obj;
         var returnType = Parameters();
-        
+
         Expect(TokenKind.LBrace);
         while (La.kind == TokenKind.Var)
         {
             VarDecl();
         }
+
         obj.Locals = SymTab.CurScope!.Locals;
         obj.Type = returnType;
-        
+
         AsmGen.GenFuncPrologue(obj);
         StatSeq();
         AsmGen.GenFuncEpilogue(obj);
-        
+
         SymTab.CloseScope();
         SymTab.CurFnc = null;
         Expect(TokenKind.RBrace);
@@ -179,13 +194,14 @@ public class Parser
                 Param();
             }
         }
+
         Expect(TokenKind.RParen);
         if (La.kind == TokenKind.Colon)
         {
             Get();
             return Type();
         }
-        
+
         return SymTab.VoidType;
     }
 
@@ -221,11 +237,12 @@ public class Parser
             {
                 x = AsmGen.VarOperand(o);
             }
+
             if (o.Kind == ObjKind.Func)
             {
                 x = AsmGen.FuncOperand(o);
             }
-            
+
             if (La.kind == TokenKind.Assign)
             {
                 Get();
@@ -241,11 +258,16 @@ public class Parser
                 {
                     SynErr(37);
                 }
+
                 List<Operand> args = ActParameters();
                 AsmGen.GenFuncCall(SymTab.CurFnc!, x, args);
-                Warning(Errors.ReturnValueIgnored);
+                if (o.Type != SymTab.VoidType)
+                {
+                    Warning(Errors.ReturnValueIgnored);
+                }
             }
             else SynErr(31);
+
             Expect(TokenKind.Semicolon);
         }
         else if (La.kind == TokenKind.If)
@@ -254,7 +276,7 @@ public class Parser
             // nextLbl for the next block (defaults to endLbl if no else).
             string endLbl = AsmGen.GetNewLabel();
             string nextLbl = AsmGen.GetNewLabel();
-            
+
             Get();
             Expect(TokenKind.LParen);
             // False path: jump to next "else" block.
@@ -264,18 +286,18 @@ public class Parser
             StatSeq();
             Expect(TokenKind.RBrace);
 
-            
+
             // True path: jump to end if there are "else" blocks.
             if (La.kind == TokenKind.Elseif || La.kind == TokenKind.Else)
             {
-                AsmGen.GenJump(endLbl, SymTab.CurFnc!);   
+                AsmGen.GenJump(endLbl, SymTab.CurFnc!);
             }
-            
+
             while (La.kind == TokenKind.Elseif)
             {
                 AsmGen.GenLbl(nextLbl, SymTab.CurFnc!);
                 nextLbl = AsmGen.GetNewLabel();
-                
+
                 Get();
                 Expect(TokenKind.LParen);
                 // False path: jump to next "else" block.
@@ -284,17 +306,18 @@ public class Parser
                 Expect(TokenKind.LBrace);
                 StatSeq();
                 Expect(TokenKind.RBrace);
-                
+
                 // True path: jump to end if there are "else" blocks.
                 if (La.kind == TokenKind.Elseif || La.kind == TokenKind.Else)
                 {
-                    AsmGen.GenJump(endLbl, SymTab.CurFnc!);   
+                    AsmGen.GenJump(endLbl, SymTab.CurFnc!);
                 }
             }
+
             if (La.kind == TokenKind.Else)
             {
                 AsmGen.GenLbl(nextLbl, SymTab.CurFnc!);
-                
+
                 Get();
                 Expect(TokenKind.LBrace);
                 StatSeq();
@@ -305,7 +328,7 @@ public class Parser
                 // Emit next label as end if no "else" block is present.
                 AsmGen.GenLbl(nextLbl, SymTab.CurFnc!);
             }
-            
+
             // end of "if-else" chain
             AsmGen.GenLbl(endLbl, SymTab.CurFnc!);
         }
@@ -340,7 +363,7 @@ public class Parser
             {
                 AsmGen.GenReturn(x, SymTab.CurFnc!);
             }
-            
+
             Expect(TokenKind.Semicolon);
         }
         else SynErr(32);
@@ -355,6 +378,7 @@ public class Parser
             op = T.kind;
             // TODO negation not yet implemented
         }
+
         Operand x = Term();
         while (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
@@ -383,28 +407,30 @@ public class Parser
             expr++;
             // first n (= obj.NPars) locals are parameters
             LinkedListNode<Obj>? arg = fnc.Locals.First;
-            if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type)) 
+            if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type))
                 SemErr(Errors.WrongArgumentType);
-            
+
             while (La.kind == TokenKind.Comma)
             {
                 Get();
                 x = Expression();
                 ops.Add(x);
                 expr++;
-                
+
                 arg = arg?.Next;
-                if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type)) 
+                if (arg != null && !SymTab.IsTypeCompatibleTo(x.Struct, arg.Value.Type))
                     SemErr(Errors.WrongArgumentType);
             }
         }
+
         // number of arguments must match the number of function parameters
         if (fnc != SymTab.NoObj && expr != fnc.NPars)
         {
             SemErr(Errors.WrongArgumentCount);
         }
+
         Expect(TokenKind.RParen);
-        
+
         return ops;
     }
 
@@ -425,20 +451,20 @@ public class Parser
     {
         switch (La.kind)
         {
-            case TokenKind.Assign:    Get(); break;
-            case TokenKind.NotEq:     Get(); break;
-            case TokenKind.Less:      Get(); break;
-            case TokenKind.Greater:   Get(); break;
+            case TokenKind.Assign: Get(); break;
+            case TokenKind.NotEq: Get(); break;
+            case TokenKind.Less: Get(); break;
+            case TokenKind.Greater: Get(); break;
             case TokenKind.GreaterEq: Get(); break;
-            case TokenKind.LessEq:    Get(); break;
+            case TokenKind.LessEq: Get(); break;
             default: SynErr(33); break;
         }
     }
 
     void Addop()
     {
-        if (La.kind == TokenKind.Plus)       Get();
-        else if (La.kind == TokenKind.Minus)  Get();
+        if (La.kind == TokenKind.Plus) Get();
+        else if (La.kind == TokenKind.Minus) Get();
         else SynErr(34);
     }
 
@@ -455,10 +481,10 @@ public class Parser
             {
                 SemErr(Errors.IntegerNeeded);
             }
-            
+
             AsmGen.GenArithmetic(op, x, y, SymTab.CurFnc);
         }
-        
+
         return x;
     }
 
@@ -469,7 +495,7 @@ public class Parser
         {
             Get();
             Obj o = SymTab.Find(T.val);
-            
+
             op = AsmGen.VarOperand(o);
             // operand is a function if parenthesis opens after identifier
             if (La.kind == TokenKind.LParen)
@@ -478,10 +504,12 @@ public class Parser
                 {
                     SynErr(37);
                 }
+
                 op = AsmGen.FuncOperand(o);
                 List<Operand> args = ActParameters();
                 AsmGen.GenFuncCall(SymTab.CurFnc!, op, args, true);
-            } else if (o.Kind == ObjKind.Func)
+            }
+            else if (o.Kind == ObjKind.Func)
             {
                 // syntax error if object is a function but is not called with parenthesis
                 SynErr(10);
@@ -511,8 +539,8 @@ public class Parser
 
     void Mulop()
     {
-        if (La.kind == TokenKind.Star)         Get();
-        else if (La.kind == TokenKind.Slash)   Get();
+        if (La.kind == TokenKind.Star) Get();
+        else if (La.kind == TokenKind.Slash) Get();
         else if (La.kind == TokenKind.Percent) Get();
         else SynErr(36);
     }
@@ -526,13 +554,26 @@ public class Parser
         Expect(TokenKind.Eof);
     }
 
-    static readonly bool[,] set = {
-        {_T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
-        {_x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_T,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x},
-        {_x,_T,_T,_T, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_T,_x,_x, _x,_x,_x}
+    static readonly bool[,] set =
+    {
+        {
+            _T, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x,
+            _x, _x, _x, _x
+        },
+        {
+            _x, _T, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _T, _x, _x, _T, _T, _x, _x, _x, _x, _x, _x, _x, _x,
+            _x, _x, _x, _x
+        },
+        {
+            _x, _T, _T, _T, _x, _x, _x, _x, _x, _x, _T, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _x, _T, _T, _x,
+            _x, _x, _x, _x
+        }
     };
 }
 
-public class FatalError: Exception {
-	public FatalError(string m): base(m) {}
+public class FatalError : Exception
+{
+    public FatalError(string m) : base(m)
+    {
+    }
 }

@@ -1,12 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices.Swift;
+using Microsoft.VisualBasic.CompilerServices;
 using SimpleLangCompiler.FrontEnd;
 using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.Codegen;
 
-// TODO generate assembler code for built in functions
 public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 {
     // Holds the starting lines of the .bss segment.
@@ -29,7 +29,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     public readonly List<string> TextSegmentEpilogue = [];
 
     public string GetNewLabel() => $"L{_labelCount++}";
-    
+
     private const int DWordSize = 8;
     private int _labelCount;
 
@@ -70,14 +70,24 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         }
     }
 
+    // Emit assembler code that transforms an integer operand into a character and vice versa.
+    public void GenOrdChrFunc(Operand x, Obj func)
+    {
+        var asm = Functions[func.Name];
+        Load(x, asm, true);
+        // The ORD/CHR function is implemented as a single assembly instruction,
+        // so we skip the usual function call convention and directly store its result in register a0
+        // for consistent handling outside this method.
+        asm.Add($"\tandi {Register.A0.ToLabel()}, {x.Reg!.Value.ToLabel()}, 0xff"); // mask first byte
+    }
+
     // Generate assembler code for built-in "put" function.
     public void GenPutFunc(Obj func)
     {
         // the prologue already saves the char param on the stack
-        int stackFrameSize = GenFuncPrologue(func);
-
+        var stackFrameSize = GenFuncPrologue(func);
         var asm = Functions[func.Name];
-        
+
         // print depends on environment
         switch (buildEnv)
         {
@@ -99,17 +109,17 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             default:
                 throw new NotImplementedException($"Environment '{buildEnv}' not supported for 'put' function");
         }
-        
+
         GenFuncEpilogue(func);
     }
-    
+
     // Generate assembler code for built-in "putLn" function.
     public void GenPutLnFunc(Obj func)
     {
         int stackFrameSize = GenFuncPrologue(func);
 
         var asm = Functions[func.Name];
-        
+
         // print depends on environment (see GenPutFunc for further info)
         switch (buildEnv)
         {
@@ -123,7 +133,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 var charPos = stackFrameSize - 16 - DWordSize;
                 asm.Add("\tli t0, 10"); // newline character
                 asm.Add($"\tsb t0, {charPos}(fp)");
-                
+
                 // execute Linux syscall
                 asm.Add("\tli a7, 64");
                 asm.Add("\tli a0, 1");
@@ -134,7 +144,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             default:
                 throw new NotImplementedException($"Environment '{buildEnv}' not supported for 'put' function");
         }
-        
+
         GenFuncEpilogue(func);
     }
 
@@ -179,16 +189,24 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     {
         var asm = Functions[func.Name];
 
-        foreach (var arg in args)
+        // handle special cases for ORD and CHR functions
+        if (target.Label == "ORD" || target.Label == "CHR")
         {
-            Load(arg, asm, true);
+            GenOrdChrFunc(args[0], func);
         }
-        
-        asm.Add($"\tcall {target.Label}");
-        
+        else
+        {
+            foreach (var arg in args)
+            {
+                Load(arg, asm, true);
+            }
+
+            asm.Add($"\tcall {target.Label}");
+        }
+
         // free all param registers after function return
         regAlloc.FreeAllParams();
-        
+
         if (isFactor)
         {
             var loadInstr = GetLoadInstr(target.Struct);
@@ -199,12 +217,12 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             target.AddrMode = AddressingMode.Reg;
         }
     }
-    
+
     // Generate assembler code for conditions.
     public void GenJcc(TokenKind op, Operand x, Operand y, bool fjump, string targetLbl, Obj func)
     {
         var asm = Functions[func.Name];
-        
+
         // jump directly if both operands are fixed values and the condition is true (no register allocation needed)
         if (x.Kind == OperandKind.Val && y.Kind == OperandKind.Val)
         {
@@ -218,7 +236,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 TokenKind.LessEq => x.Val <= y.Val,
                 _ => throw new FatalError($"Unsupported comparison operation: {op}")
             };
-            
+
             // xor to invert condition on false jumps
             if (fjump) res = !res;
 
@@ -230,11 +248,11 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
             return;
         }
-        
+
         // always load both operands into registers to keep code simple
         Load(x, asm);
         Load(y, asm);
-        
+
         int opCode = op switch
         {
             TokenKind.Assign => 0,
@@ -245,37 +263,37 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             TokenKind.LessEq => 5,
             _ => throw new FatalError($"Unsupported comparison operation: {op}")
         };
-        
+
         // xor to invert condition on false jumps
         if (fjump) opCode ^= 1;
-        
+
         // convert opcodes to assembler instructions
         string instr = opCode switch
         {
-            0 => "beq",   // ==
-            1 => "bne",   // != ('#' in my case -> grammar on GitHub differs from original) 
-            2 => "blt",   // <
-            3 => "bge",   // >=
-            4 => "bgt",   // >
-            5 => "ble",   // <=
+            0 => "beq", // ==
+            1 => "bne", // != ('#' in my case -> grammar on GitHub differs from original) 
+            2 => "blt", // <
+            3 => "bge", // >=
+            4 => "bgt", // >
+            5 => "ble", // <=
             _ => throw new FatalError("Invalid opcode")
         };
-        
+
         asm.Add($"\t{instr} {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}, {targetLbl}");
         regAlloc.Free(x.Reg.Value);
         regAlloc.Free(y.Reg.Value);
     }
-    
+
     // Generate assembler code for assignments.
     public void GenAssign(Operand x, Operand y, Obj func)
     {
         var asm = Functions[func.Name];
         var storeInstr = x.Struct.Type == StructKind.Int ? "sd" : "sb";
         var offsetX = GetOperandOffset(x);
-        
+
         // always load value of y into register
         Load(y, asm);
-        
+
         if (x.AddrMode == AddressingMode.RegRel)
         {
             // x := local var
@@ -310,6 +328,8 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                     x.Val *= y.Val; break;
                 case TokenKind.Slash:
                     x.Val /= y.Val; break;
+                case TokenKind.Percent:
+                    x.Val %= y.Val; break;
             }
 
             return;
@@ -335,20 +355,23 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             case TokenKind.Slash:
                 asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
                 break;
+            case TokenKind.Percent:
+                asm.Add($"\trem {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                break;
         }
 
         regAlloc.Free(x.Reg!.Value);
         regAlloc.Free(y.Reg!.Value);
         x.Reg = rd;
     }
-    
+
     // Add a jump instruction to a label.
     public void GenJump(string lbl, Obj func)
     {
         var asm = Functions[func.Name];
         asm.Add($"\tj {lbl}");
     }
-    
+
     // Add a label to the assembly code.
     public void GenLbl(string lbl, Obj func)
     {
@@ -361,7 +384,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     {
         var rd = regAlloc.Alloc(isParam);
 
-        if (x.Kind == OperandKind.Val)
+        if (x is { Kind: OperandKind.Val, AddrMode: null })
         {
             // load the immediate value into the register for simplicity
             asm.Add($"\tli {rd.ToLabel()}, {x.Val}");
@@ -500,7 +523,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                     asm.Add($"\tmv a0, {rd.ToLabel()}");
                     regAlloc.Free(rd);
                 }
-                
+
                 break;
             case OperandKind.Val:
                 asm.Add($"\tli a0, {x.Val}");
@@ -523,7 +546,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     {
         return -16 - DWordSize * ((x.AdrOffset ?? 0) + 1);
     }
-    
+
     private string GetLoadInstr(Struct type)
     {
         return type.Type == StructKind.Int ? "ld" : "lb";
