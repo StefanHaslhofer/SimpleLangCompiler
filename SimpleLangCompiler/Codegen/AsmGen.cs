@@ -335,30 +335,28 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         Load(x, asm);
         Load(y, asm);
 
-        // note: register allocation is not optimal
-        var rd = regAlloc.Alloc(RegisterPool.Temp);
+        var rd = x.Reg!.Value.ToLabel();
+        var rs = y.Reg!.Value.ToLabel();
         switch (op)
         {
             case TokenKind.Plus:
-                asm.Add($"\tadd {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                asm.Add($"\tadd {rd}, {rd}, {rs}");
                 break;
             case TokenKind.Minus:
-                asm.Add($"\tsub {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                asm.Add($"\tsub {rd}, {rd}, {rs}");
                 break;
             case TokenKind.Star:
-                asm.Add($"\tmul {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                asm.Add($"\tmul {rd}, {rd}, {rs}");
                 break;
             case TokenKind.Slash:
-                asm.Add($"\tdiv {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                asm.Add($"\tdiv {rd}, {rd}, {rs}");
                 break;
             case TokenKind.Percent:
-                asm.Add($"\trem {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}, {y.Reg!.Value.ToLabel()}");
+                asm.Add($"\trem {rd}, {rd}, {rs}");
                 break;
         }
-
-        regAlloc.Free(x.Reg!.Value);
+        
         regAlloc.Free(y.Reg!.Value);
-        x.Reg = rd;
     }
 
     // Add a jump instruction to a label.
