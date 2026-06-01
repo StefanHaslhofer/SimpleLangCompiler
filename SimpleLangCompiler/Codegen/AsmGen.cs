@@ -70,7 +70,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     public void GenOrdChrFunc(Operand x, Obj func)
     {
         var asm = Functions[func.Name];
-        Load(x, asm, true);
+        Load(x, asm, RegisterPool.Param);
         // The ORD/CHR function is implemented as a single assembly instruction,
         // so we skip the usual function call convention and directly store its result in register a0
         // for consistent handling outside this method.
@@ -195,7 +195,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         {
             foreach (var arg in args)
             {
-                Load(arg, asm, true);
+                Load(arg, asm, RegisterPool.Param);
             }
 
             asm.Add($"\tcall {target.Label}");
@@ -207,7 +207,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         if (isFactor)
         {
             // store return value in tmp register
-            var reg = regAlloc.Alloc();
+            var reg = regAlloc.Alloc(RegisterPool.Saved);
             asm.Add($"\tmv {reg.ToLabel()}, {Register.A0.ToLabel()}");
             target.Reg = reg;
             target.AddrMode = AddressingMode.Reg;
@@ -298,7 +298,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         else if (x.AddrMode == AddressingMode.Abs)
         {
             // x := global var
-            var rd = regAlloc.Alloc();
+            var rd = regAlloc.Alloc(RegisterPool.Temp);
             asm.Add($"\tla {rd.ToLabel()}, {x.Label}");
             asm.Add($"\t{storeInstr} {y.Reg!.Value.ToLabel()}, 0({rd.ToLabel()})");
             regAlloc.Free(rd);
@@ -336,7 +336,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         Load(y, asm);
 
         // note: register allocation is not optimal
-        var rd = regAlloc.Alloc();
+        var rd = regAlloc.Alloc(RegisterPool.Temp);
         switch (op)
         {
             case TokenKind.Plus:
@@ -376,9 +376,9 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     }
 
     // Load operand value into register.
-    private void Load(Operand x, List<string> asm, bool isParam = false)
+    private void Load(Operand x, List<string> asm, RegisterPool rp = RegisterPool.Temp)
     {
-        var rd = regAlloc.Alloc(isParam);
+        var rd = regAlloc.Alloc(rp);
 
         if (x.Kind == OperandKind.Val && x.AddrMode == null)
         {
@@ -513,7 +513,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 else
                 {
                     // register relative vars have to be loaded into register first
-                    var rd = regAlloc.Alloc();
+                    var rd = regAlloc.Alloc(RegisterPool.Temp);
                     var loadInstr = GetLoadInstr(x.Struct);
                     asm.Add($"\t{loadInstr} {rd.ToLabel()}, {GetOperandOffset(x)}(fp)");
                     asm.Add($"\tmv a0, {rd.ToLabel()}");
