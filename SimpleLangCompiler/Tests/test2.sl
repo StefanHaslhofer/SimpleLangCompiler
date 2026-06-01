@@ -1,5 +1,5 @@
 ﻿fn foo(): int {
-    return 1;
+    return 65;
 }
 
 fn bar(a: int, b: int): int {
@@ -9,4 +9,5 @@ fn bar(a: int, b: int): int {
 fn main() {
     var x: int;
     x = foo() + bar(1, 2);
+    put(CHR(x));
 }
