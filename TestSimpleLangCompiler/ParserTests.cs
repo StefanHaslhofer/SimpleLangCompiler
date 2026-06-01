@@ -12,7 +12,7 @@ public class ParserTests(ITestOutputHelper output)
     private void AnalyzeOk(string input)
     {
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
-        var parser = new Parser(new Scanner(stream));
+        var parser = new Parser(new Scanner(stream), "sim");
         var sw = new StringWriter();
         parser.Errors.ErrorStream = sw;
 
@@ -25,7 +25,7 @@ public class ParserTests(ITestOutputHelper output)
     private void AnalyzeErr(string input)
     {
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
-        var parser = new Parser(new Scanner(stream));
+        var parser = new Parser(new Scanner(stream), "sim");
         var sw = new StringWriter();
         parser.Errors.ErrorStream = sw;
 

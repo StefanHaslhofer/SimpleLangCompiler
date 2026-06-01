@@ -53,10 +53,12 @@ public class SymbolTable
         Insert(ObjKind.Var, "e", CharType);
         PutFunc.NPars++;
         PutFunc.Locals = CurScope!.Locals;
+        _parser.AsmGen.GenPutFunc(PutFunc);
         CloseScope();
         
         // putLn
         PutLnFunc = Insert(ObjKind.Func, "putLn", VoidType);
+        _parser.AsmGen.GenPutLnFunc(PutLnFunc);
         
         // ord
         OrdFunc = Insert(ObjKind.Func, "ORD", IntType);
@@ -121,7 +123,8 @@ public class SymbolTable
     /// </summary>
     public bool CheckOperandCompatibility(Operand? x, Operand? y)
     {
-        if (!IsTypeCompatibleTo(x?.Struct ?? VoidType, y?.Struct ?? VoidType))
+        if (!IsTypeCompatibleTo(x?.Struct ?? VoidType, y?.Struct ?? VoidType) 
+            || x?.Struct == VoidType || y?.Struct == VoidType)
         {
             _parser.SemErr(Errors.DifferentTypes);
             return false;

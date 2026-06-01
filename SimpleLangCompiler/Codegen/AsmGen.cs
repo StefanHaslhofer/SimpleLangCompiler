@@ -7,7 +7,7 @@ using SimpleLangCompiler.Symtab;
 namespace SimpleLangCompiler.Codegen;
 
 // TODO generate assembler code for built in functions
-public class AsmGen(RegisterAllocator regAlloc)
+public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 {
     // Holds the starting lines of the .bss segment.
     public readonly List<string> BssSegment = [];
@@ -70,6 +70,74 @@ public class AsmGen(RegisterAllocator regAlloc)
         }
     }
 
+    // Generate assembler code for built-in "put" function.
+    public void GenPutFunc(Obj func)
+    {
+        // the prologue already saves the char param on the stack
+        int stackFrameSize = GenFuncPrologue(func);
+
+        var asm = Functions[func.Name];
+        
+        // print depends on environment
+        switch (buildEnv)
+        {
+            case "sim":
+                // syscall 11 is "print character"
+                asm.Add("\tli a7, 11");
+                asm.Add("\tecall");
+                break;
+            case "linux":
+                // Linux uses write to file for printing. Because register a0 is used for file descriptor,
+                // we need to push the char param onto the stack first,
+                // which is already done in the prologue.
+                asm.Add("\tli a7, 64");
+                asm.Add("\tli a0, 1"); // a0 = 1 (file descriptor for stdout)
+                asm.Add($"\taddi a1, fp, {stackFrameSize - 16 - DWordSize}"); // start address of output
+                asm.Add("\tli a2, 1"); // number of bytes to write (one char = 1 byte)
+                asm.Add("\tecall");
+                break;
+            default:
+                throw new NotImplementedException($"Environment '{buildEnv}' not supported for 'put' function");
+        }
+        
+        GenFuncEpilogue(func);
+    }
+    
+    // Generate assembler code for built-in "putLn" function.
+    public void GenPutLnFunc(Obj func)
+    {
+        int stackFrameSize = GenFuncPrologue(func);
+
+        var asm = Functions[func.Name];
+        
+        // print depends on environment (see GenPutFunc for further info)
+        switch (buildEnv)
+        {
+            case "sim":
+                asm.Add("\tli a0, 10"); // newline character
+                asm.Add("\tli a7, 11");
+                asm.Add("\tecall");
+                break;
+            case "linux":
+                // store newline character on stack
+                var charPos = stackFrameSize - 16 - DWordSize;
+                asm.Add("\tli t0, 10"); // newline character
+                asm.Add($"\tsb t0, {charPos}(fp)");
+                
+                // execute Linux syscall
+                asm.Add("\tli a7, 64");
+                asm.Add("\tli a0, 1");
+                asm.Add($"\taddi a1, fp, {charPos}");
+                asm.Add("\tli a2, 1");
+                asm.Add("\tecall");
+                break;
+            default:
+                throw new NotImplementedException($"Environment '{buildEnv}' not supported for 'put' function");
+        }
+        
+        GenFuncEpilogue(func);
+    }
+
     public Operand VarOperand(Obj o)
     {
         Operand x = new Operand(o.Type, OperandKind.Var);
@@ -123,8 +191,11 @@ public class AsmGen(RegisterAllocator regAlloc)
         
         if (isFactor)
         {
-            regAlloc.AllocReturn();
-            target.Reg = Register.A0;
+            var loadInstr = GetLoadInstr(target.Struct);
+            // store return value in tmp register
+            var reg = regAlloc.Alloc();
+            asm.Add($"\t{loadInstr} {reg.ToLabel()}, 0({Register.A0.ToLabel()})");
+            target.Reg = reg;
             target.AddrMode = AddressingMode.Reg;
         }
     }
@@ -297,7 +368,7 @@ public class AsmGen(RegisterAllocator regAlloc)
         }
         else
         {
-            var loadInstr = x.Struct.Type == StructKind.Int ? "ld" : "lb";
+            var loadInstr = GetLoadInstr(x.Struct);
             switch (x.AddrMode)
             {
                 case AddressingMode.Abs:
@@ -310,7 +381,8 @@ public class AsmGen(RegisterAllocator regAlloc)
                     asm.Add($"\t{loadInstr} {rd.ToLabel()}, {GetOperandOffset(x)}(fp)");
                     break;
                 case AddressingMode.Reg:
-                    // do nothing if operand is already in register
+                    // free unnecessarily allocated register if operand is already in register
+                    regAlloc.Free(rd);
                     return;
             }
         }
@@ -320,10 +392,10 @@ public class AsmGen(RegisterAllocator regAlloc)
         x.AdrOffset = 0;
     }
 
-    public void GenFuncPrologue(Obj obj)
+    public int GenFuncPrologue(Obj obj)
     {
         // initialize function area
-        Functions.Add(obj.Name, [$"{obj.Name}:"]);
+        Functions.TryAdd(obj.Name, [$"{obj.Name}:"]);
         var funcAsm = Functions[obj.Name];
 
         var stackFrameSize = CalculateStackFrameSize(obj.Locals.Count);
@@ -346,6 +418,7 @@ public class AsmGen(RegisterAllocator regAlloc)
 
         // set frame pointer (new fp = old sp)
         funcAsm.Add($"\taddi fp, sp, {stackFrameSize}");
+        return stackFrameSize;
     }
 
     public void GenFuncEpilogue(Obj obj)
@@ -422,7 +495,7 @@ public class AsmGen(RegisterAllocator regAlloc)
                 {
                     // register relative vars have to be loaded into register first
                     var rd = regAlloc.Alloc();
-                    var loadInstr = x.Struct.Type == StructKind.Int ? "ld" : "lb";
+                    var loadInstr = GetLoadInstr(x.Struct);
                     asm.Add($"\t{loadInstr} {rd.ToLabel()}, {GetOperandOffset(x)}(fp)");
                     asm.Add($"\tmv a0, {rd.ToLabel()}");
                     regAlloc.Free(rd);
@@ -449,5 +522,10 @@ public class AsmGen(RegisterAllocator regAlloc)
     private int GetOperandOffset(Operand x)
     {
         return -16 - DWordSize * ((x.AdrOffset ?? 0) + 1);
+    }
+    
+    private string GetLoadInstr(Struct type)
+    {
+        return type.Type == StructKind.Int ? "ld" : "lb";
     }
 }

@@ -18,12 +18,12 @@ public class Parser
     private Token La;  // lookahead token
     private int _errDist = MinErrDist;
 
-    public Parser(Scanner scanner)
+    public Parser(Scanner scanner, string buildEnv)
     {
         Scanner = scanner;
-        SymTab = new SymbolTable(this);
         Errors = new Errors();
-        AsmGen = new AsmGen(new RegisterAllocator());
+        AsmGen = new AsmGen(new RegisterAllocator(), buildEnv);
+        SymTab = new SymbolTable(this);
     }
 
     void SynErr(int n)
@@ -217,10 +217,17 @@ public class Parser
         {
             Get();
             Obj o = SymTab.Find(T.val);
+            if (o.Kind == ObjKind.Var)
+            {
+                x = AsmGen.VarOperand(o);
+            }
+            if (o.Kind == ObjKind.Func)
+            {
+                x = AsmGen.FuncOperand(o);
+            }
             
             if (La.kind == TokenKind.Assign)
             {
-                x = AsmGen.VarOperand(o);
                 Get();
                 Operand y = Expression();
                 if (SymTab.CheckOperandCompatibility(x, y) && SymTab.CheckAssignability(x, y))
@@ -234,7 +241,6 @@ public class Parser
                 {
                     SynErr(37);
                 }
-                x = AsmGen.FuncOperand(o);
                 List<Operand> args = ActParameters();
                 AsmGen.GenFuncCall(SymTab.CurFnc!, x, args);
                 Warning(Errors.ReturnValueIgnored);

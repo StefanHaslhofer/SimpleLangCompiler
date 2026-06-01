@@ -101,18 +101,6 @@ public class RegisterAllocator
 
         return reg;
     }
-
-    /// Attempts to allocate the return value register (a0) from the available parameter registers.
-    /// <throws cref="FatalError" /> if a0 was unavailable (already allocated or a1–a7 was next in the pool)
-    public void AllocReturn()
-    {
-        if (!_availableParamRegs.TryPop(out var reg) || reg != Register.A0)
-        {
-            throw new FatalError($"Cannot allocate register {Register.A0}.");
-        }
-        
-        _allocated.Add(reg);
-    }
     
     // Deallocate a register.
     public void Free(Register reg)

@@ -12,7 +12,7 @@ public class SemanticTests(ITestOutputHelper output)
     private void SemOk(string input)
     {
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
-        var parser = new Parser(new Scanner(stream));
+        var parser = new Parser(new Scanner(stream), "sim");
         var sw = new StringWriter();
         parser.Errors.ErrorStream = sw;
 
@@ -31,7 +31,7 @@ public class SemanticTests(ITestOutputHelper output)
     private void SemErr(string input)
     {
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(input));
-        var parser = new Parser(new Scanner(stream));
+        var parser = new Parser(new Scanner(stream), "sim");
         var sw = new StringWriter();
         parser.Errors.ErrorStream = sw;
 
