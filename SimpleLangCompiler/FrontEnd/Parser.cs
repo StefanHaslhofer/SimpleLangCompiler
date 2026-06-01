@@ -372,15 +372,18 @@ public class Parser
 
     Operand Expression()
     {
-        TokenKind op;
+        TokenKind op = TokenKind.NoSym;
         if (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();
             op = T.kind;
-            // TODO negation not yet implemented
         }
 
         Operand x = Term();
+        if (op == TokenKind.Minus)
+        {
+            AsmGen.GenNeg(x, SymTab.CurFnc!);
+        }
         while (La.kind == TokenKind.Plus || La.kind == TokenKind.Minus)
         {
             Addop();

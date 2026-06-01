@@ -1,8 +1,4 @@
-﻿using System.Diagnostics;
-using System.Reflection.Emit;
-using System.Runtime.InteropServices.Swift;
-using Microsoft.VisualBasic.CompilerServices;
-using SimpleLangCompiler.FrontEnd;
+﻿using SimpleLangCompiler.FrontEnd;
 using SimpleLangCompiler.Symtab;
 
 namespace SimpleLangCompiler.Codegen;
@@ -531,6 +527,21 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         }
 
         asm.Add($"\tj {func.Name}_ret");
+    }
+    
+    // Negate operand.
+    public void GenNeg(Operand x, Obj func)
+    {
+        // directly negate if operand is a fixed value
+        if (x.Kind == OperandKind.Val)
+        {
+            x.Val = -x.Val;
+            return;
+        }
+        
+        var asm = Functions[func.Name];
+        Load(x, asm);
+        asm.Add($"\tneg {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
     }
 
     // Stack frame size = (num_locals × 8) + 8, aligned to 16 bytes.
