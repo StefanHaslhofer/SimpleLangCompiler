@@ -523,8 +523,11 @@ public class Parser
         else if (La.kind == TokenKind.CharCon)
         {
             Get();
-            // TODO check if char should also be ValOperand
-            op = new Operand(SymTab.CharType, OperandKind.Val);
+            if (!TryParseQuotedChar(T.val, out char ch))
+            {
+                SynErr(3);
+            }
+            op = AsmGen.ValOperand(SymTab.CharType, ch);
         }
         else if (La.kind == TokenKind.LParen)
         {
@@ -554,6 +557,16 @@ public class Parser
         Expect(TokenKind.Eof);
     }
 
+    // Try to parse a string consisting of a single quoted char.
+    private bool TryParseQuotedChar(string s, out char ch)
+    {
+        ch = default;
+        if (s.Length != 3 || s[0] != '\'' || s[2] != '\'')
+            return false;
+        ch = s[1];
+        return true;
+    }
+    
     static readonly bool[,] set =
     {
         {

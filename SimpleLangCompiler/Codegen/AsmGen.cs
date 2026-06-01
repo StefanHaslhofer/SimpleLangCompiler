@@ -303,8 +303,8 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         {
             // x := global var
             var rd = regAlloc.Alloc();
-            asm.Add($"\tla {rd}, {x.Label}");
-            asm.Add($"\t{storeInstr} {y.Reg!.Value.ToLabel()}, 0({rd})");
+            asm.Add($"\tla {rd.ToLabel()}, {x.Label}");
+            asm.Add($"\t{storeInstr} {y.Reg!.Value.ToLabel()}, 0({rd.ToLabel()})");
             regAlloc.Free(rd);
         }
 
@@ -384,7 +384,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     {
         var rd = regAlloc.Alloc(isParam);
 
-        if (x is { Kind: OperandKind.Val, AddrMode: null })
+        if (x.Kind == OperandKind.Val && x.AddrMode == null)
         {
             // load the immediate value into the register for simplicity
             asm.Add($"\tli {rd.ToLabel()}, {x.Val}");
