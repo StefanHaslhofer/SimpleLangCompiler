@@ -71,7 +71,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     {
         var asm = Functions[func.Name];
         Load(x, asm, RegisterPool.Param);
-        // The ORD/CHR function is implemented as a single assembly instruction,
+        // The ORD/CHR function is implemented as a single assembly instruction (method inlining),
         // so we skip the usual function call convention and directly store its result in register a0
         // for consistent handling outside this method.
         asm.Add($"\tandi {Register.A0.ToLabel()}, {x.Reg!.Value.ToLabel()}, 0xff"); // mask first byte
@@ -428,6 +428,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // but I want to keep it as simple as possible.
         foreach (var (i, param) in obj.Locals.Take(obj.NPars).Index())
         {
+            // TODO store params on the stack if no registers are available anymore
             // store double word or byte depending on parameter type
             var storeInstr = param.Type.Type == StructKind.Int ? "sd" : "sb";
             funcAsm.Add($"\t{storeInstr} a{i}, {stackFrameSize - 16 - (i + 1) * DWordSize}(sp)");
