@@ -193,7 +193,12 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         }
         else
         {
-            foreach (var arg in args)
+            // first 8 args go in a0-a7
+            var regArgs = args.Take(8).ToList();
+            // TODO remaining args spilled on stack
+            var stackArgs = args.Skip(8).ToList();
+            
+            foreach (var arg in regArgs)
             {
                 Load(arg, asm, RegisterPool.Param);
             }
@@ -355,7 +360,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 asm.Add($"\trem {rd}, {rd}, {rs}");
                 break;
         }
-        
+
         regAlloc.Free(y.Reg!.Value);
     }
 
@@ -415,7 +420,8 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         Functions.TryAdd(obj.Name, [$"{obj.Name}:"]);
         var funcAsm = Functions[obj.Name];
 
-        var stackFrameSize = CalculateStackFrameSize(obj.Locals.Count);
+        var localCount = GetNumOfLocals(obj);
+        var stackFrameSize = CalculateStackFrameSize(localCount);
         // allocate memory for all locals
         funcAsm.Add($"\taddi sp, sp, -{stackFrameSize}");
         // save return address
@@ -423,15 +429,22 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // save caller frame pointer
         funcAsm.Add($"\tsd fp, {stackFrameSize - 16}(sp)");
 
-        // Push function parameters onto stack (only first n locals are params stored in registers a0 to a7).
+        // Push function parameters onto stack.
         // This is not optimal because registers a0 to a7 could be used directly,
         // but I want to keep it as simple as possible.
         foreach (var (i, param) in obj.Locals.Take(obj.NPars).Index())
         {
-            // TODO store params on the stack if no registers are available anymore
-            // store double word or byte depending on parameter type
-            var storeInstr = param.Type.Type == StructKind.Int ? "sd" : "sb";
-            funcAsm.Add($"\t{storeInstr} a{i}, {stackFrameSize - 16 - (i + 1) * DWordSize}(sp)");
+            // only first n locals are params stored in registers a0 to a7
+            if (i <= 7)
+            {
+                // store double word or byte depending on parameter type
+                var storeInstr = param.Type.Type == StructKind.Int ? "sd" : "sb";
+                funcAsm.Add($"\t{storeInstr} a{i}, {stackFrameSize - 16 - (i + 1) * DWordSize}(sp)");
+            }
+            else
+            {
+                break;
+            }
         }
 
         // set frame pointer (new fp = old sp)
@@ -446,7 +459,8 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // label so early returns can jump here
         funcAsm.Add($"{obj.Name}_ret:");
         // Calculate space for locals
-        var stackFrameSize = CalculateStackFrameSize(obj.Locals.Count);
+        var localCount = GetNumOfLocals(obj);
+        var stackFrameSize = CalculateStackFrameSize(localCount);
         // restore caller frame pointer
         funcAsm.Add($"\tld fp, {stackFrameSize - 16}(sp)");
         // restore return address
@@ -527,7 +541,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
         asm.Add($"\tj {func.Name}_ret");
     }
-    
+
     // Negate operand.
     public void GenNeg(Operand x, Obj func)
     {
@@ -537,13 +551,13 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             x.Val = -x.Val;
             return;
         }
-        
+
         var asm = Functions[func.Name];
         Load(x, asm);
         asm.Add($"\tneg {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
     }
 
-    // Stack frame size = (num_locals × 8) + 8, aligned to 16 bytes.
+    // Stack frame size = (numOfLocals × 8) + 8, aligned to 16 bytes.
     // Note: all locals treated as 8 bytes wide for simplicity.
     private int CalculateStackFrameSize(int numOfLocals)
     {
@@ -554,7 +568,24 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
     private int GetOperandOffset(Operand x)
     {
-        return -16 - DWordSize * ((x.AdrOffset ?? 0) + 1);
+        var index = x.AdrOffset ?? 0;
+        // 9th param and beyond
+        if (index >= 8)
+        {
+            // already on stack above fp (positive offset), placed by caller
+            // 9th param at fp+8, 10th at fp+16, ...
+            return (index - 8 + 1) * DWordSize;
+        }
+
+        // locals and first 8 params: negative offset from fp
+        return -16 - DWordSize * (index + 1);
+    }
+
+    // Calculate number of local variables that are part of the stack frame beneath the function fp.
+    private int GetNumOfLocals(Obj obj)
+    {
+        // return the number of all locals minus the number of params NOT passed by register (i.e., 9th param and beyond)
+        return obj.Locals.Count - Math.Max(0, obj.NPars - 8);
     }
 
     private string GetLoadInstr(Struct type)
