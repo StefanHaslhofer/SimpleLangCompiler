@@ -195,7 +195,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         {
             // first 8 args go in a0-a7
             var regArgs = args.Take(8).ToList();
-            // TODO remaining args spilled on stack
+            // remaining args spilled on stack
             var stackArgs = args.Skip(8).ToList();
             
             foreach (var arg in regArgs)
@@ -203,7 +203,32 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 Load(arg, asm, RegisterPool.Param);
             }
 
-            asm.Add($"\tcall {target.Label}");
+            if (stackArgs.Count > 0)
+            {
+                int alignedSize = CalculateSpillStackSize(stackArgs.Count);
+
+                // allocate spill stack
+                asm.Add($"\taddi sp, sp, -{alignedSize}");
+                
+                foreach (var (i, arg) in stackArgs.Index())
+                {
+                    // load into temp register
+                    Load(arg, asm);
+                    // store on stack
+                    var storeInstr = arg.Struct.Type == StructKind.Int ? "sd" : "sb";
+                    asm.Add($"\t{storeInstr} {arg.Reg!.Value.ToLabel()}, {i * DWordSize}(sp)");
+                    regAlloc.Free(arg.Reg.Value);
+                }
+                
+                asm.Add($"\tcall {target.Label}");
+                
+                // deallocate spill stack
+                asm.Add($"\taddi sp, sp, -{alignedSize}");
+            }
+            else
+            {
+                asm.Add($"\tcall {target.Label}");
+            }
         }
 
         // free all param registers after function return
@@ -557,7 +582,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         asm.Add($"\tneg {x.Reg!.Value.ToLabel()}, {x.Reg!.Value.ToLabel()}");
     }
 
-    // Stack frame size = (numOfLocals × 8) + 8, aligned to 16 bytes.
+    // Stack frame size = (numOfLocals × 8) + 16, aligned to 16 bytes.
     // Note: all locals treated as 8 bytes wide for simplicity.
     private int CalculateStackFrameSize(int numOfLocals)
     {
@@ -574,11 +599,19 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         {
             // already on stack above fp (positive offset), placed by caller
             // 9th param at fp+8, 10th at fp+16, ...
-            return (index - 8 + 1) * DWordSize;
+            return (index - 8) * DWordSize;
         }
 
         // locals and first 8 params: negative offset from fp
         return -16 - DWordSize * (index + 1);
+    }
+    
+    // Stack frame size = (spilledParams × 8), aligned to 16 bytes.
+    private int CalculateSpillStackSize(int spilledParams)
+    {
+        var space = spilledParams * DWordSize;
+        // allocate stack frame (needs to be 16 byte aligned according to ABI spec)
+        return (int)(Math.Ceiling(space / 16.0) * 16);
     }
 
     // Calculate number of local variables that are part of the stack frame beneath the function fp.
