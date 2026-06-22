@@ -233,7 +233,8 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
         if (isFactor)
         {
-            // store return value in saved register
+            // Store return value in a saved register to prevent overwriting during
+            // consecutive function calls (temp registers may be overwritten). 
             var reg = regAlloc.Alloc(RegisterPool.Saved);
             asm.Add($"\tmv {reg.ToLabel()}, {Register.A0.ToLabel()}");
             target.Reg = reg;
