@@ -74,7 +74,6 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // so we skip the usual function call convention and directly store its result in register a0
         // for consistent handling outside this method.
         asm.Add($"\tandi {Register.A0.ToLabel()}, {x.Reg!.Value.ToLabel()}, 0xff"); // mask first byte
-        regAlloc.Free(x.Reg.Value);
     }
 
     // Generate assembler code for built-in "put" function.
@@ -426,8 +425,19 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                     asm.Add($"\t{loadInstr} {rd.ToLabel()}, {GetOperandOffset(x)}(fp)");
                     break;
                 case AddressingMode.Reg:
-                    // free unnecessarily allocated register if operand is already in register
-                    regAlloc.Free(rd);
+                    // move operand to parameter register if it's only in a temp register (otherwise recursion breaks)
+                    if (rp == RegisterPool.Param && !regAlloc.IsParamReg(x.Reg!.Value))
+                    {
+                        // need to move it into the correct param register
+                        asm.Add($"\tmv {rd.ToLabel()}, {x.Reg!.Value.ToLabel()}");
+                        regAlloc.Free(x.Reg.Value);
+                    }
+                    else
+                    {
+                        // free unnecessarily allocated register if operand is already in register
+                        regAlloc.Free(rd);
+                    }
+
                     return;
             }
         }

@@ -83,7 +83,7 @@ public class RegisterAllocator
         reg is Register.T0 or Register.T1 or Register.T2 or Register.T3
             or Register.T4 or Register.T5 or Register.T6;
 
-    private bool IsParamReg(Register reg) =>
+    public bool IsParamReg(Register reg) =>
         reg is Register.A0 or Register.A1 or Register.A2 or Register.A3
             or Register.A4 or Register.A5 or Register.A6 or Register.A7;
     
