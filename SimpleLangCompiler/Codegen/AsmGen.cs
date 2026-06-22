@@ -29,7 +29,6 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     private const int DWordSize = 8;
     private int _labelCount;
 
-    // TODO this method should write to a file or at least should produce output that can be automatically linked
     public void Print()
     {
         foreach (var s in BssSegment)
@@ -197,7 +196,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             var regArgs = args.Take(8).ToList();
             // remaining args spilled on stack
             var stackArgs = args.Skip(8).ToList();
-            
+
             foreach (var arg in regArgs)
             {
                 Load(arg, asm, RegisterPool.Param);
@@ -209,7 +208,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
                 // allocate spill stack
                 asm.Add($"\taddi sp, sp, -{alignedSize}");
-                
+
                 foreach (var (i, arg) in stackArgs.Index())
                 {
                     // load into temp register
@@ -219,9 +218,9 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                     asm.Add($"\t{storeInstr} {arg.Reg!.Value.ToLabel()}, {i * DWordSize}(sp)");
                     regAlloc.Free(arg.Reg.Value);
                 }
-                
+
                 asm.Add($"\tcall {target.Label}");
-                
+
                 // deallocate spill stack
                 asm.Add($"\taddi sp, sp, -{alignedSize}");
             }
@@ -498,6 +497,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     public void GenTextPrologue()
     {
         TextSegmentPrologue.Add(".text");
+        TextSegmentPrologue.Add(".globl skip");
         TextSegmentPrologue.Add("j skip");
     }
 
@@ -506,6 +506,11 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // call main
         TextSegmentEpilogue.Add("skip:");
         TextSegmentEpilogue.Add("\tcall main");
+        // exit syscall
+        TextSegmentEpilogue.Add("\tli a7, 93");
+        // exit code 0
+        TextSegmentEpilogue.Add("\tli a0, 0");
+        TextSegmentEpilogue.Add("\tecall");
     }
 
     // Generate assembler code for variable declaration.
@@ -605,7 +610,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         // locals and first 8 params: negative offset from fp
         return -16 - DWordSize * (index + 1);
     }
-    
+
     // Stack frame size = (spilledParams × 8), aligned to 16 bytes.
     private int CalculateSpillStackSize(int spilledParams)
     {
