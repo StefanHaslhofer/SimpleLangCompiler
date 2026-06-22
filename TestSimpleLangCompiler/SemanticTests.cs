@@ -43,8 +43,7 @@ public class SemanticTests(ITestOutputHelper output)
         {
             throw new Exception("Syntax error");
         }
-
-        // TODO also check the content of the error message
+        
         Assert.True(parser.Errors.Count > 0);
     }
 

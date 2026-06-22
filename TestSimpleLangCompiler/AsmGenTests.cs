@@ -36,22 +36,31 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
             // best-effort cleanup; ignore failures (e.g. file still locked)
         }
     }
-
-    /// <summary>
-    ///     Compiles the given SimpleLang source, runs it, and asserts stdout matches expected output.
-    /// </summary>
+    
+    // Compiles the given SimpleLang source, runs it, and asserts stdout matches expected output.
     private void RunOk(string input, string expectedStdout)
     {
         var actual = CompileAndRun(input);
         Assert.Equal(expectedStdout, actual);
+    }
+    
+    // Compiles and runs the given SimpleLang source, printing stdout to the test output
+    // without asserting anything. Used because I was too lazy to implement a script
+    // compiling the given test program, which would do the same anyway.
+    private void RunAndPrint(string input)
+    {
+        var actual = CompileAndRun(input);
+        output.WriteLine("---- program stdout ----");
+        output.WriteLine(actual);
+        output.WriteLine("---- end stdout ----");
     }
 
     private string CompileAndRun(string input)
     {
         Directory.CreateDirectory(_workDir);
 
-        // 1. Parse + generate RISC-V assembly using the existing front end ("linux" target
-        //    so built-ins use the write() syscall instead of the RARS-only "sim" syscalls).
+        // 1. Parse + generate RISC-V assembly using the existing front end
+        // ("linux" target use the write() syscall instead of the "sim" syscalls).
         string asmCode = CompileToAssembly(input);
         output.WriteLine(asmCode);
 
@@ -63,8 +72,11 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
         string wslAsmPath = ToWslPath(asmPath);
         string wslBinPath = ToWslPath(binPath);
 
+        // I had to add the '-fno-pic' flag and force the compiler to run at fixed memory addresses,
+        // because otherwise memory access would break and cause a segfault.
+        // I debugged this issue using the following command: `qemu-riscv64 -d in_asm,cpu out 2>&1 | tail -50` 
         var (assembleExit, assembleOut, assembleErr) = RunWsl(
-            $"riscv64-linux-gnu-gcc -static -nostdlib -e skip -o {wslBinPath} {wslAsmPath}");
+            $"riscv64-linux-gnu-gcc -static -nostdlib -fno-pic -o {wslBinPath} {wslAsmPath}");
 
         if (assembleExit != 0)
         {
@@ -111,10 +123,8 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
 
         return asmOut.ToString();
     }
-
-    /// <summary>
-    ///     Converts a Windows path (e.g. C:\Users\foo\bar.s) to its WSL equivalent (/mnt/c/Users/foo/bar.s).
-    /// </summary>
+    
+    // Converts a Windows path (e.g. C:\Users\foo\bar.s) to its WSL equivalent (/mnt/c/Users/foo/bar.s).
     private static string ToWslPath(string windowsPath)
     {
         var full = Path.GetFullPath(windowsPath).Replace('\\', '/');
@@ -303,6 +313,37 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
             put(ch);
         }
     ", "9");
+
+    [Fact]
+    public void RunTestSl() => RunAndPrint(@"
+        var i: int;
+
+        fn putInt(x: int): void { /* largest printable number = 9999 */
+            var c0: char;
+            var c1: char;
+            var c2: char;
+            var c3: char;
+
+            c3 = CHR(48 + x % 10); x = x / 10;
+            c2 = CHR(48 + x % 10); x = x / 10;
+            c1 = CHR(48 + x % 10); x = x / 10;
+            c0 = CHR(48 + x % 10);
+
+            if (c0 > '0') { put(c0); put(c1); put(c2); }
+            elseif (c1 > '0') { put(c1); put(c2); }
+            elseif (c2 > '0') { put(c2); }
+            put(c3);
+        }
+
+        fn main(): void { /* print odd numbers */
+            i = 1;
+            while (i < 100) {
+                putInt(i);
+                putLn();
+                i = i + 2;
+            }
+        }
+        ");
 
     #endregion
 }

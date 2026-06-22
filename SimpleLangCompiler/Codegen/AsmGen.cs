@@ -98,7 +98,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 // which is already done in the prologue.
                 asm.Add("\tli a7, 64");
                 asm.Add("\tli a0, 1"); // a0 = 1 (file descriptor for stdout)
-                asm.Add($"\taddi a1, fp, {stackFrameSize - 16 - DWordSize}"); // start address of output
+                asm.Add($"\taddi a1, sp, {stackFrameSize - 16 - DWordSize}"); // start address of output
                 asm.Add("\tli a2, 1"); // number of bytes to write (one char = 1 byte)
                 asm.Add("\tecall");
                 break;
@@ -467,6 +467,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
             }
             else
             {
+                // 9th+ params already on stack above fp - do nothing
                 break;
             }
         }
@@ -497,8 +498,9 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
     public void GenTextPrologue()
     {
         TextSegmentPrologue.Add(".text");
-        TextSegmentPrologue.Add(".globl skip");
-        TextSegmentPrologue.Add("j skip");
+        TextSegmentPrologue.Add(".globl _start");
+        TextSegmentPrologue.Add("_start:");
+        TextSegmentPrologue.Add("\tj skip");
     }
 
     public void GenTextEpilogue()
