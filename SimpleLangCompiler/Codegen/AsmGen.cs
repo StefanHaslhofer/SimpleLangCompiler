@@ -233,8 +233,8 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
 
         if (isFactor)
         {
-            // store return value in tmp register
-            var reg = regAlloc.Alloc(RegisterPool.Temp);
+            // store return value in saved register
+            var reg = regAlloc.Alloc(RegisterPool.Saved);
             asm.Add($"\tmv {reg.ToLabel()}, {Register.A0.ToLabel()}");
             target.Reg = reg;
             target.AddrMode = AddressingMode.Reg;

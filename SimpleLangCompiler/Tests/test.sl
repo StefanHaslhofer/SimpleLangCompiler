@@ -19,7 +19,7 @@ fn putInt(x: int): void { /* largest printable number = 9999 */
 
 fn main(): void { /* print odd numbers */
     i = 1;
-    while (i < 100) {
+    while (i < 1000) {
         putInt(i);
         putLn();
         i = i + 2;

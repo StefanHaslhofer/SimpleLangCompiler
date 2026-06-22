@@ -36,14 +36,14 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
             // best-effort cleanup; ignore failures (e.g. file still locked)
         }
     }
-    
+
     // Compiles the given SimpleLang source, runs it, and asserts stdout matches expected output.
     private void RunOk(string input, string expectedStdout)
     {
         var actual = CompileAndRun(input);
         Assert.Equal(expectedStdout, actual);
     }
-    
+
     // Compiles and runs the given SimpleLang source, printing stdout to the test output
     // without asserting anything. Used because I was too lazy to implement a script
     // compiling the given test program, which would do the same anyway.
@@ -123,7 +123,7 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
 
         return asmOut.ToString();
     }
-    
+
     // Converts a Windows path (e.g. C:\Users\foo\bar.s) to its WSL equivalent (/mnt/c/Users/foo/bar.s).
     private static string ToWslPath(string windowsPath)
     {
@@ -337,13 +337,70 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
 
         fn main(): void { /* print odd numbers */
             i = 1;
-            while (i < 100) {
+            while (i < 1000) {
                 putInt(i);
                 putLn();
                 i = i + 2;
             }
         }
         ");
+
+    [Fact]
+    public void NestedFunctionCalls() => RunOk(@"
+        fn square(x: int): int {
+            return x * x;
+        }
+
+        fn addSquares(a: int, b: int): int {
+            return square(a) + square(b);
+        }
+
+        fn main() {
+            var x: int;
+            var c: char;
+
+            x = addSquares(2, 4); /* 4 + 16 = 20 */
+            c = CHR(65 + x);
+            put(c);
+        }
+    ", "U");
+
+    [Fact]
+    public void DeeplyNestedFunctionCalls() => RunOk(@"
+        fn foo(x: int): int {
+            return x + 1;
+        }
+
+        fn main() {
+            var x: int;
+            var c: char;
+
+            x = foo(foo(foo(foo(foo(foo(foo(foo(foo(foo(foo(foo(foo(foo(foo(0)))))))))))))));
+            c = CHR(65 + x); /* A + 15 = P */
+            put(c);
+        }
+    ", "P");
+
+    [Fact]
+    public void ManyConsecutiveFunctionCalls() => RunOk(@"
+        fn foo(x: int): int {
+            return x + 1;
+        }
+
+        fn main() {
+            var x: int;
+            var c: char;
+
+            /* 15 consecutive calls to foo(1), each returning 2. Total = 15 * 2 = 30. */
+            x = foo(1) + foo(1) + foo(1) + foo(1) + foo(1) +
+                foo(1) + foo(1) + foo(1) + foo(1) + foo(1) +
+                foo(1) + foo(1) + foo(1) + foo(1) + foo(1);
+
+            /* 30 % 10 = 0, so CHR(48 + 0) = '0' */
+            c = CHR(48 + (x % 10));
+            put(c);
+        }
+    ", "0");
 
     #endregion
 }
