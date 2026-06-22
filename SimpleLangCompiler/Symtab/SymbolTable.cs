@@ -2,39 +2,39 @@
 
 namespace SimpleLangCompiler.Symtab;
 
-/// <summary>
+
 /// Symbol table.
-/// </summary>
+
 public class SymbolTable
 {
-    /// <summary>
-    ///     Global type declarations.
-    /// </summary>
+    
+    // Global type declarations.
+    
     public readonly Struct VoidType = new(StructKind.Void);
     public readonly Struct IntType = new(StructKind.Int);
     public readonly Struct CharType = new(StructKind.Char);
     
-    /// <summary>
-    ///     Global function and variable declarations.
-    /// </summary>
+    
+    // Global function and variable declarations.
+    
     public Obj NoObj, PutFunc, PutLnFunc, OrdFunc, ChrFunc;
 
-    /// <summary>
-    ///     Currently opened scope.
-    /// </summary>
+    
+    // Currently opened scope.
+    
     public Scope? CurScope;
 
-    /// <summary>
-    ///     Sets the scope of the function currently being analyzed,
-    ///     primarily used for return type validation.
-    /// </summary>
+    
+    // Sets the scope of the function currently being analyzed,
+    // primarily used for return type validation.
+    
     public Obj? CurFnc;
 
     private readonly Parser _parser;
 
-    /// <summary>
-    ///     Register pre-declared types and functions.
-    /// </summary>
+    
+    // Register pre-declared types and functions.
+    
     public SymbolTable(Parser parser)
     {
         _parser = parser;
@@ -58,7 +58,12 @@ public class SymbolTable
         
         // putLn
         PutLnFunc = Insert(ObjKind.Func, "putLn", VoidType);
+        OpenScope();
+        // reserve space for additional local variable to store newline character on stack
+        Insert(ObjKind.Var, "_", CharType);
+        PutLnFunc.Locals = CurScope!.Locals;
         _parser.AsmGen.GenPutLnFunc(PutLnFunc);
+        CloseScope();
         
         // ord
         OrdFunc = Insert(ObjKind.Func, "ORD", IntType);
@@ -77,9 +82,9 @@ public class SymbolTable
         CloseScope();
     }
 
-    /// <summary>
-    ///     Finds an object in the current or enclosing scopes.
-    /// </summary>
+    
+    // Finds an object in the current or enclosing scopes.
+    
     public Obj Find(string name)
     {
         var obj = CurScope.GetGlobal(name);
@@ -97,9 +102,9 @@ public class SymbolTable
         CurScope = new Scope(CurScope != null ? CurScope.Level + 1 : 0, CurScope);
     }
     
-    /// <summary>
-    ///     Insert an object into the current scope.
-    /// </summary>
+    
+    // Insert an object into the current scope.
+    
     public Obj Insert(ObjKind kind, string name, Struct? type)
     {
         // semantic error if object already exists in scope
@@ -118,9 +123,9 @@ public class SymbolTable
         CurScope = CurScope!.Outer!;
     }
     
-    /// <summary>
-    ///     Semantic error if operand types are not compatible. 
-    /// </summary>
+    
+    // Semantic error if operand types are not compatible. 
+    
     public bool CheckOperandCompatibility(Operand? x, Operand? y)
     {
         if (!IsTypeCompatibleTo(x?.Struct ?? VoidType, y?.Struct ?? VoidType) 
@@ -133,17 +138,17 @@ public class SymbolTable
         return true;
     }
     
-    /// <summary>
-    ///     Return true if operand types are equal, false otherwise.
-    /// </summary>
+    
+    // Return true if operand types are equal, false otherwise.
+    
     public bool IsTypeCompatibleTo(Struct x, Struct y)
     {
         return x.Type == y.Type;
     }
     
-    /// <summary>
-    ///     Semantic error if operand y is not assignable to x. 
-    /// </summary>
+    
+    // Semantic error if operand y is not assignable to x. 
+    
     public bool CheckAssignability(Operand? x, Operand? y)
     {
         if(x == null || y == null || x.Kind == OperandKind.None || y.Kind == OperandKind.None)

@@ -76,7 +76,7 @@ public class AsmGenTests(ITestOutputHelper output) : IDisposable
         // because otherwise memory access would break and cause a segfault.
         // I debugged this issue using the following command: `qemu-riscv64 -d in_asm,cpu out 2>&1 | tail -50` 
         var (assembleExit, assembleOut, assembleErr) = RunWsl(
-            $"riscv64-linux-gnu-gcc -static -nostdlib -fno-pic -o {wslBinPath} {wslAsmPath}");
+            $"riscv64-linux-gnu-gcc -static -nostdlib -fno-pic -Wa,-mno-relax -o {wslBinPath} {wslAsmPath}");
 
         if (assembleExit != 0)
         {

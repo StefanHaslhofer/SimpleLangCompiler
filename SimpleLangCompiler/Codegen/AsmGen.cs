@@ -126,14 +126,13 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 break;
             case "linux":
                 // store newline character on stack
-                var charPos = stackFrameSize - 16 - DWordSize;
                 asm.Add("\tli t0, 10"); // newline character
-                asm.Add($"\tsb t0, {charPos}(fp)");
+                asm.Add($"\tsb t0, 0(sp)");
 
                 // execute Linux syscall
                 asm.Add("\tli a7, 64");
                 asm.Add("\tli a0, 1");
-                asm.Add($"\taddi a1, fp, {charPos}");
+                asm.Add($"\taddi a1, sp, 0");
                 asm.Add("\tli a2, 1");
                 asm.Add("\tecall");
                 break;
@@ -222,7 +221,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
                 asm.Add($"\tcall {target.Label}");
 
                 // deallocate spill stack
-                asm.Add($"\taddi sp, sp, -{alignedSize}");
+                asm.Add($"\taddi sp, sp, {alignedSize}");
             }
             else
             {
@@ -236,7 +235,7 @@ public class AsmGen(RegisterAllocator regAlloc, string buildEnv)
         if (isFactor)
         {
             // store return value in tmp register
-            var reg = regAlloc.Alloc(RegisterPool.Saved);
+            var reg = regAlloc.Alloc(RegisterPool.Temp);
             asm.Add($"\tmv {reg.ToLabel()}, {Register.A0.ToLabel()}");
             target.Reg = reg;
             target.AddrMode = AddressingMode.Reg;
